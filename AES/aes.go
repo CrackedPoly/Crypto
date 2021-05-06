@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 )
 
 var sbox = [256]byte{
@@ -115,21 +116,26 @@ func ReadHex(filename string) []byte {
 		}
 	}
 	return msg
+}
 
+func WriteHex(filename string, msg []byte) error {
+	hexString := make([]byte, 2*len(msg))
+	for i, _ := range msg{
+		if (msg[i]>>4) >= 10 {
+			hexString[2*i] = (msg[i]>>4) + 'A'
+		}else if (msg[i]>>4) <= 9 {
+			hexString[2*i+1] = (msg[i]>>4) + '0'
+		}
 
-	//file, err := os.Open(filename)
-	//buffString := make([]byte, 10*1024*1024)
-	//if err != nil {
-	//	fmt.Println("文件打开失败", err.Error())
-	//}else {
-	//	for {
-	//		n, err := file.Read(buffString)
-	//		if n == 0 || err == io.EOF{
-	//			break
-	//		}
-	//	}
-	//}
-	//msg := make([]byte, len(buffString)/2)
+		if ((msg[i]<<4)>>4) >= 10 {
+			hexString[2*i] = ((msg[i]<<4)>>4) + 'A'
+		}else if ((msg[i]<<4)>>4) <= 9 {
+			hexString[2*i+1] = ((msg[i]<<4)>>4) + '0'
+		}
+	}
+
+	err := ioutil.WriteFile(filename, hexString, os.ModeAppend)
+	return err
 }
 
 //
@@ -209,25 +215,30 @@ func (a *AES) DecryptECB(in []byte) {
 func (a *AES) EncryptCBC(in []byte, iv []byte, pad paddingFunc) {
 	pad(&in, a.len)
 	roundKeys := a.keyExpansion()
+	ivTmp := make([]byte, len(iv))
+	copy(ivTmp, iv)
+
 	fmt.Printf("AES-%d CBC encrypted cipher:", a.len*8)
 	for i := 0; i < len(in); i+=16 {
-		Xor(in[i:i+16], iv)
+		Xor(in[i:i+16], ivTmp)
 		a.encryptBlock(in[i:i+16], roundKeys)
-		copy(iv, in[i:i+16])
+		copy(ivTmp, in[i:i+16])
 	}
 	DumpBytes("", in)
 }
 
 func (a *AES) DecryptCBC(in []byte, iv []byte) {
 	roundKeys := a.keyExpansion()
+	ivTmp := make([]byte, len(iv))
+	copy(ivTmp, iv)
 	reg := make([]byte, len(iv))
 	fmt.Printf("AES-%d CBC decrypted plaintext:", a.len*8)
 
 	for i := 0; i < len(in); i+=16 {
 		copy(reg, in[i:i+16])
 		a.decryptBlock(in[i: i+16], roundKeys)
-		Xor(in[i:i+16], iv)
-		copy(iv, reg)
+		Xor(in[i:i+16], ivTmp)
+		copy(ivTmp, reg)
 	}
 	DumpBytes("", in)
 }
@@ -235,26 +246,30 @@ func (a *AES) DecryptCBC(in []byte, iv []byte) {
 func (a *AES) EncryptCFB32(in []byte, iv []byte, pad paddingFunc) {
 	pad(&in, 4)
 	roundKeys := a.keyExpansion()
+	ivTmp := make([]byte, len(iv))
+	copy(ivTmp, iv)
 	fmt.Printf("AES-%d CFB32 encrypted cipher:", a.len*8)
 
 	for i := 0; i < len(in); i+=4 {
-		a.encryptBlock(iv, roundKeys)
-		Xor(in[i: i+4], iv[0: 4])
-		iv = append(iv[4:], in[i: i+4]...)
+		a.encryptBlock(ivTmp, roundKeys)
+		Xor(in[i: i+4], ivTmp[0: 4])
+		ivTmp = append(ivTmp[4:], in[i: i+4]...)
 	}
 	DumpBytes("", in)
 }
 
 func (a *AES) DecryptCFB32(in []byte, iv []byte) {
 	roundKeys := a.keyExpansion()
-	fmt.Printf("AES-%d CFB32 decrypted plaintext:", a.len*8)
+	ivTmp := make([]byte, len(iv))
+	copy(ivTmp, iv)
 	cipherTmp := make([]byte, len(in))
 	copy(cipherTmp, in)
+	fmt.Printf("AES-%d CFB32 decrypted plaintext:", a.len*8)
 
 	for i := 0; i < len(in); i+=4 {
-		a.encryptBlock(iv, roundKeys)
-		Xor(in[i: i+4], iv[0: 4])
-		iv = append(iv[4:], cipherTmp[i: i+4]...)
+		a.encryptBlock(ivTmp, roundKeys)
+		Xor(in[i: i+4], ivTmp[0: 4])
+		ivTmp = append(ivTmp[4:], cipherTmp[i: i+4]...)
 	}
 	DumpBytes("", in)
 }
@@ -262,22 +277,28 @@ func (a *AES) DecryptCFB32(in []byte, iv []byte) {
 func (a *AES) EncryptOFB32(in []byte, iv []byte, pad paddingFunc) {
 	pad(&in, 4)
 	roundKeys := a.keyExpansion()
+	ivTmp := make([]byte, len(iv))
+	copy(ivTmp, iv)
+
 	fmt.Printf("AES-%d OFB32 encrypted cipher:", a.len*8)
 	for i := 0; i < len(in); i+=4 {
-		a.encryptBlock(iv, roundKeys)
-		Xor(in[i: i+4], iv[0: 4])
-		iv = append(iv[4:], iv[0: 4]...)
+		a.encryptBlock(ivTmp, roundKeys)
+		Xor(in[i: i+4], ivTmp[0: 4])
+		ivTmp = append(ivTmp[4:], ivTmp[0: 4]...)
 	}
 	DumpBytes("", in)
 }
 
 func (a *AES) DecryptOFB32(in []byte, iv []byte) {
 	roundKeys := a.keyExpansion()
+	ivTmp := make([]byte, len(iv))
+	copy(ivTmp, iv)
+
 	fmt.Printf("AES-%d OFB32 decrypted plaintext:", a.len*8)
 	for i := 0; i < len(in); i+=4 {
-		a.encryptBlock(iv, roundKeys)
-		Xor(in[i: i+4], iv[0: 4])
-		iv = append(iv[4:], iv[0: 4]...)
+		a.encryptBlock(ivTmp, roundKeys)
+		Xor(in[i: i+4], ivTmp[0: 4])
+		iv = append(ivTmp[4:], ivTmp[0: 4]...)
 	}
 	DumpBytes("", in)
 }
