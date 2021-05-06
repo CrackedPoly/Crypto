@@ -70,6 +70,10 @@ func main() {
 				aes, err := Aes.NewAES(key)
 				if err == nil {
 					aes.EncryptCBC(msg, iv, Aes.PaddingZeros)
+					err1 := Aes.WriteHex(cipherfile, msg)
+					if err1 != nil {
+						err1.Error()
+					}
 					aes.DecryptCBC(msg, iv)
 				}
 			case "CFB":
@@ -79,6 +83,10 @@ func main() {
 				aes, err := Aes.NewAES(key)
 				if err == nil {
 					aes.EncryptCFB32(msg, iv, Aes.PaddingZeros)
+					err1 := Aes.WriteHex(cipherfile, msg)
+					if err1 != nil {
+						err1.Error()
+					}
 					aes.DecryptCFB32(msg, iv)
 				}
 			case "OFB":
@@ -88,6 +96,10 @@ func main() {
 				aes, err := Aes.NewAES(key)
 				if err == nil {
 					aes.EncryptOFB32(msg, iv, Aes.PaddingZeros)
+					err1 := Aes.WriteHex(cipherfile, msg)
+					if err1 != nil {
+						err1.Error()
+					}
 					aes.DecryptOFB32(msg, iv)
 				}
 			default:

@@ -119,23 +119,34 @@ func ReadHex(filename string) []byte {
 }
 
 func WriteHex(filename string, msg []byte) error {
-	hexString := make([]byte, 2*len(msg))
-	for i, _ := range msg{
-		if (msg[i]>>4) >= 10 {
-			hexString[2*i] = (msg[i]>>4) + 'A'
-		}else if (msg[i]>>4) <= 9 {
-			hexString[2*i+1] = (msg[i]>>4) + '0'
-		}
+	//hexString := make([]byte, 2*len(msg))
+	//for i, _ := range msg{
+	//	if (msg[i]>>4) >= 10 {
+	//		hexString[2*i] = (msg[i]>>4) + 'A'
+	//	}else if (msg[i]>>4) <= 9 {
+	//		hexString[2*i+1] = (msg[i]>>4) + '0'
+	//	}
+	//
+	//	if ((msg[i]<<4)>>4) >= 10 {
+	//		hexString[2*i] = ((msg[i]<<4)>>4) + 'A'
+	//	}else if ((msg[i]<<4)>>4) <= 9 {
+	//		hexString[2*i+1] = ((msg[i]<<4)>>4) + '0'
+	//	}
+	//}
 
-		if ((msg[i]<<4)>>4) >= 10 {
-			hexString[2*i] = ((msg[i]<<4)>>4) + 'A'
-		}else if ((msg[i]<<4)>>4) <= 9 {
-			hexString[2*i+1] = ((msg[i]<<4)>>4) + '0'
+	file, err := os.OpenFile(filename, os.O_APPEND, 0666)
+	if err != nil{
+		fmt.Println("Open file err =", err)
+		return err
+	}
+	defer file.Close()
+	for i, _ := range msg{
+		_, err1 := fmt.Fprintf(file, "%02X", msg[i])
+		if err1 != nil {
+			return err1
 		}
 	}
-
-	err := ioutil.WriteFile(filename, hexString, os.ModeAppend)
-	return err
+	return nil
 }
 
 //
