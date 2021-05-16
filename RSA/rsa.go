@@ -6,19 +6,22 @@ import (
 )
 
 type RSA struct {
-	p      *big.Int
-	q      *big.Int
-	n      *big.Int
+	P      *big.Int
+	Q      *big.Int
+	N      *big.Int
 	fn     *big.Int
-	e      *big.Int
-	d      *big.Int
+	E      *big.Int
+	D      *big.Int
 	keyLen int
 }
 
 func NewRSA(keyLen int) RSA {
 	operand := big.NewInt(0)
 	one := big.NewInt(1)
-	var p, q, n, fn, e, d *big.Int
+	var p, q, e *big.Int
+	n := new(big.Int)
+	fn := new(big.Int)
+	d := new(big.Int)
 	var err error
 	for {
 		p, err = rand.Prime(rand.Reader, keyLen)
@@ -32,8 +35,8 @@ func NewRSA(keyLen int) RSA {
 			break
 		}
 	}
-	n = operand.Mul(p, q)
-	fn = operand.Mul(operand.Sub(p, one), operand.Sub(q, one))
+	n = n.Mul(p, q)
+	fn = fn.Mul(operand.Sub(p, one), operand.Sub(q, one))
 
 	for {
 		e, err = rand.Int(rand.Reader, fn)
@@ -41,33 +44,62 @@ func NewRSA(keyLen int) RSA {
 			break
 		}
 	}
-	d = operand.ModInverse(e, fn)
+	d = d.ModInverse(e, fn)
 	return RSA{
-		p:      p,
-		q:      q,
-		n:      n,
+		P:      p,
+		Q:      q,
+		N:      n,
 		fn:     fn,
-		e:      e,
-		d:      d,
+		E:      e,
+		D:      d,
 		keyLen: keyLen,
 	}
 }
 
-func NewSign(n *big.Int, e *big.Int, d *big.Int) RSA {
+func NewSign(nString string, dString string) RSA {
+	n := new(big.Int)
+	d := new(big.Int)
+	n.SetString(nString, 16)
+	d.SetString(dString, 16)
 	return RSA{
-		p:      nil,
-		q:      nil,
-		n:      n,
+		P:      nil,
+		Q:      nil,
+		N:      n,
 		fn:     nil,
-		e:      e,
-		d:      d,
-		keyLen: nil,
+		E:      nil,
+		D:      d,
+		keyLen: 0,
+	}
+}
+
+func NewCheck(nString string, eString string) RSA {
+	n := new(big.Int)
+	e := new(big.Int)
+	n.SetString(nString, 16)
+	e.SetString(eString, 16)
+	return RSA{
+		P:      nil,
+		Q:      nil,
+		N:      n,
+		fn:     nil,
+		E:      e,
+		D:      nil,
+		keyLen: 0,
 	}
 }
 
 func (r *RSA) Encrypt(plaintext string) string {
 	p := new(big.Int)
 	p.SetString(plaintext, 16)
-	p.Exp(p, r.e, r.n)
-	return p.Text(16)
+	p.Exp(p, r.E, r.N)
+	cipher := p.Text(16)
+	return cipher
+}
+
+func (r *RSA) Decrypt(cipher string) string {
+	p := new(big.Int)
+	p.SetString(cipher, 16)
+	p.Exp(p, r.D, r.N)
+	plaintext := p.Text(16)
+	return plaintext
 }
