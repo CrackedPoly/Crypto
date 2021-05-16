@@ -34,9 +34,9 @@ func genkeyAction(ctx *cli.Context) error {
 
 func encryptAction(ctx *cli.Context) error {
 	plaintext := ReadHex(plainfile)
-	eString := ReadHex(efile)
-	nString := ReadHex(nfile)
-	Rsa := rsa.NewCheck(nString, eString)
+	s := ReadHex(efile)
+	tmp := strings.Fields(s)
+	Rsa := rsa.NewCheck(tmp[0], tmp[1])
 	cipher := Rsa.Encrypt(plaintext)
 	fmt.Println("cipher: ", cipher)
 	WriteHex(cipherfile, cipher)
@@ -45,9 +45,9 @@ func encryptAction(ctx *cli.Context) error {
 
 func signAction(ctx *cli.Context) error {
 	plaintext := ReadHex(plainfile)
-	dString := ReadHex(dfile)
-	nString := ReadHex(nfile)
-	Rsa := rsa.NewSign(nString, dString)
+	s := ReadHex(efile)
+	tmp := strings.Fields(s)
+	Rsa := rsa.NewSign(tmp[0], tmp[1])
 	cipher := Rsa.Decrypt(plaintext)
 	fmt.Println("signed cipher: ", cipher)
 	WriteHex(cipherfile, cipher)
@@ -122,4 +122,5 @@ func WriteHex(filename string, msg string) {
 	if err != nil {
 		fmt.Println("Error in writing", filename, err)
 	}
+	//fmt.Println("cipher successfully wrote.")
 }
