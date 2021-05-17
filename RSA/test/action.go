@@ -35,6 +35,7 @@ func genkeyAction(ctx *cli.Context) error {
 func encryptAction(ctx *cli.Context) error {
 	plaintext := ReadHex(plainfile)
 	s := ReadHex(efile)
+	fmt.Println("public key: ", s)
 	tmp := strings.Fields(s)
 	Rsa := rsa.NewCheck(tmp[0], tmp[1])
 	cipher := Rsa.Encrypt(plaintext)
@@ -46,10 +47,11 @@ func encryptAction(ctx *cli.Context) error {
 func signAction(ctx *cli.Context) error {
 	plaintext := ReadHex(plainfile)
 	s := ReadHex(efile)
+	fmt.Println("private key: ", s)
 	tmp := strings.Fields(s)
 	Rsa := rsa.NewSign(tmp[0], tmp[1])
 	cipher := Rsa.Decrypt(plaintext)
-	fmt.Println("signed cipher: ", cipher)
+	fmt.Println("signed message: ", cipher)
 	WriteHex(cipherfile, cipher)
 	return nil
 }

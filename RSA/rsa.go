@@ -9,10 +9,8 @@ type RSA struct {
 	P      *big.Int
 	Q      *big.Int
 	N      *big.Int
-	fn     *big.Int
 	E      *big.Int
 	D      *big.Int
-	keyLen int
 }
 
 func NewRSA(keyLen int) RSA {
@@ -49,10 +47,8 @@ func NewRSA(keyLen int) RSA {
 		P:      p,
 		Q:      q,
 		N:      n,
-		fn:     fn,
 		E:      e,
 		D:      d,
-		keyLen: keyLen,
 	}
 }
 
@@ -65,10 +61,8 @@ func NewSign(nString string, dString string) RSA {
 		P:      nil,
 		Q:      nil,
 		N:      n,
-		fn:     nil,
 		E:      nil,
 		D:      d,
-		keyLen: 0,
 	}
 }
 
@@ -81,10 +75,8 @@ func NewCheck(nString string, eString string) RSA {
 		P:      nil,
 		Q:      nil,
 		N:      n,
-		fn:     nil,
 		E:      e,
 		D:      nil,
-		keyLen: 0,
 	}
 }
 
