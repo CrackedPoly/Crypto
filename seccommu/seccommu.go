@@ -55,7 +55,7 @@ func ParsePriKey(pvkfile string) *rsa.PrivateKey {
 }
 
 func NewCer(childCer string, childKey string, rootCer string, rootKey string, cn string) error {
-	cmd := exec.Command("./tools/makecert.exe", "-n", "CN="+cn, "-iv", rootKey, "-ic", rootCer, "-sv", childKey, childCer)
+	cmd := exec.Command("../tools/makecert.exe", "-n", "CN="+cn, "-iv", rootKey, "-ic", rootCer, "-sv", childKey, childCer)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 	err := cmd.Run()
 	//out, err := cmd.CombinedOutput()
