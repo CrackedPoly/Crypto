@@ -110,15 +110,15 @@ func main() {
 				aes, err := Aes.NewAES(key)
 				if err == nil {
 					start := time.Now() // 获取当前时间
-					for i := 0; i <10; i++ {
+					for i := 0; i < 10; i++ {
 						aes.EncryptECB(msg, Aes.PaddingZeros)
 					}
-					for i := 0; i <10; i++ {
+					for i := 0; i < 10; i++ {
 						aes.DecryptECB(msg)
 					}
 					elapsed := time.Since(start)
 					fmt.Println("十次加解密时间：", elapsed)
-					fmt.Println("速度：", 0.005/float64(elapsed) ,"MB/s")
+					fmt.Println("速度：", 0.005/float64(elapsed), "MB/s")
 					aes.DecryptECB(msg)
 				}
 			case "CBCTEST":
@@ -128,15 +128,15 @@ func main() {
 				aes, err := Aes.NewAES(key)
 				if err == nil {
 					start := time.Now() // 获取当前时间
-					for i := 0; i <10; i++ {
+					for i := 0; i < 10; i++ {
 						aes.EncryptCBC(msg, iv, Aes.PaddingZeros)
 					}
-					for i := 0; i <10; i++ {
+					for i := 0; i < 10; i++ {
 						aes.DecryptCBC(msg, iv)
 					}
 					elapsed := time.Since(start)
 					fmt.Println("十次加解密时间：", elapsed)
-					fmt.Println("速度：", 0.005/float64(elapsed) ,"MB/s")
+					fmt.Println("速度：", 0.005/float64(elapsed), "MB/s")
 					aes.DecryptCBC(msg, iv)
 				}
 			case "CFBTEST":
@@ -146,15 +146,15 @@ func main() {
 				aes, err := Aes.NewAES(key)
 				if err == nil {
 					start := time.Now() // 获取当前时间
-					for i := 0; i <10; i++ {
+					for i := 0; i < 10; i++ {
 						aes.EncryptCFB32(msg, iv, Aes.PaddingZeros)
 					}
-					for i := 0; i <10; i++ {
+					for i := 0; i < 10; i++ {
 						aes.DecryptCFB32(msg, iv)
 					}
 					elapsed := time.Since(start)
 					fmt.Println("十次加解密时间：", elapsed)
-					fmt.Println("速度：", 0.005/float64(elapsed) ,"MB/s")
+					fmt.Println("速度：", 0.005/float64(elapsed), "MB/s")
 					aes.DecryptCBC(msg, iv)
 				}
 			case "OFBTEST":
@@ -164,15 +164,15 @@ func main() {
 				aes, err := Aes.NewAES(key)
 				if err == nil {
 					start := time.Now() // 获取当前时间
-					for i := 0; i <10; i++ {
+					for i := 0; i < 10; i++ {
 						aes.EncryptOFB32(msg, iv, Aes.PaddingZeros)
 					}
-					for i := 0; i <10; i++ {
+					for i := 0; i < 10; i++ {
 						aes.DecryptOFB32(msg, iv)
 					}
 					elapsed := time.Since(start)
 					fmt.Println("十次加解密时间：", elapsed)
-					fmt.Println("速度：", 0.005/float64(elapsed) ,"MB/s")
+					fmt.Println("速度：", 0.005/float64(elapsed), "MB/s")
 					aes.DecryptCBC(msg, iv)
 				}
 			default:

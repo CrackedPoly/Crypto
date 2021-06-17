@@ -6,11 +6,11 @@ import (
 )
 
 type RSA struct {
-	P      *big.Int
-	Q      *big.Int
-	N      *big.Int
-	E      *big.Int
-	D      *big.Int
+	P *big.Int
+	Q *big.Int
+	N *big.Int
+	E *big.Int
+	D *big.Int
 }
 
 func NewRSA(keyLen int) RSA {
@@ -44,11 +44,11 @@ func NewRSA(keyLen int) RSA {
 	}
 	d = d.ModInverse(e, fn)
 	return RSA{
-		P:      p,
-		Q:      q,
-		N:      n,
-		E:      e,
-		D:      d,
+		P: p,
+		Q: q,
+		N: n,
+		E: e,
+		D: d,
 	}
 }
 
@@ -58,11 +58,11 @@ func NewSign(nString string, dString string) RSA {
 	n.SetString(nString, 16)
 	d.SetString(dString, 16)
 	return RSA{
-		P:      nil,
-		Q:      nil,
-		N:      n,
-		E:      nil,
-		D:      d,
+		P: nil,
+		Q: nil,
+		N: n,
+		E: nil,
+		D: d,
 	}
 }
 
@@ -72,11 +72,11 @@ func NewCheck(nString string, eString string) RSA {
 	n.SetString(nString, 16)
 	e.SetString(eString, 16)
 	return RSA{
-		P:      nil,
-		Q:      nil,
-		N:      n,
-		E:      e,
-		D:      nil,
+		P: nil,
+		Q: nil,
+		N: n,
+		E: e,
+		D: nil,
 	}
 }
 

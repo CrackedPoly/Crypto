@@ -43,3 +43,18 @@
 
 ### 将pvk格式私钥转换为pem
 `openssl rsa -inform pvk -in test.pvk -outform pem -out test.pem`
+
+
+
+# 实验命令执行顺序
+newcer -CN tester -childcer jia.cer -childpvk jia.pvk -rootcer RootTeacher.cer -rootpvk RootTeacher.pvk
+
+send -cer ChildSubject.cer -keyout key_enc -msg data -msgout data_enc -pvk jia.pvk -signedout signed
+
+getkey -keyout key_enc -keyrec key_rec -pvk ChildSubject.pvk
+
+getmsg -keyrec key_rec -msgout data_enc -msgrec data_rec
+
+verify -cer jia.cer -msgrec data_rec -signedout signed
+
+diff -msg data -msgrec data_rec
