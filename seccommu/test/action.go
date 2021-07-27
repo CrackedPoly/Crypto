@@ -52,7 +52,7 @@ func getkeyAction(ctx *cli.Context) error {
 	}
 	key := seccommu.DecryptRSA(priKey, cipher)
 
-	fmt.Printf("key: %x, recovered in %s successfully.\n", key, keyout)
+	fmt.Printf("key: %x, recovered in %s successfully.\n", key, keyrec)
 
 	err1 := ioutil.WriteFile(keyrec, key, 0777)
 	if err1 != nil {

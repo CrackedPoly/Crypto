@@ -67,25 +67,28 @@ type AES struct {
 type paddingFunc func(*[]byte, int)
 
 func NewAES(key []byte) (*AES, error) {
-	var nk, nr int
+	var nk, nr, length int
 	switch len(key) {
 	case 16:
 		nk = 4
 		nr = 10
+		length = 16
 	case 24:
 		nk = 6
 		nr = 12
+		length = 24
 	case 32:
 		nk = 8
 		nr = 14
+		length = 32
 	default:
-		return nil, errors.New("Key length doesn't match.")
+		return nil, errors.New("Invalid key length.")
 	}
 	return &AES{
 		nr:  nr,
 		nk:  nk,
 		nb:  4,
-		len: 16,
+		len: length,
 		key: key,
 	}, nil
 }
@@ -93,7 +96,7 @@ func NewAES(key []byte) (*AES, error) {
 func ReadHex(filename string) []byte {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		fmt.Println("File reading error", err)
+		fmt.Println("File reading error: ", err)
 		return nil
 	}
 	for i, _ := range data {
@@ -119,21 +122,6 @@ func ReadHex(filename string) []byte {
 }
 
 func WriteHex(filename string, msg []byte) error {
-	//hexString := make([]byte, 2*len(msg))
-	//for i, _ := range msg{
-	//	if (msg[i]>>4) >= 10 {
-	//		hexString[2*i] = (msg[i]>>4) + 'A'
-	//	}else if (msg[i]>>4) <= 9 {
-	//		hexString[2*i+1] = (msg[i]>>4) + '0'
-	//	}
-	//
-	//	if ((msg[i]<<4)>>4) >= 10 {
-	//		hexString[2*i] = ((msg[i]<<4)>>4) + 'A'
-	//	}else if ((msg[i]<<4)>>4) <= 9 {
-	//		hexString[2*i+1] = ((msg[i]<<4)>>4) + '0'
-	//	}
-	//}
-
 	file, err := os.OpenFile(filename, os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Println("Open file err =", err)
@@ -147,25 +135,6 @@ func WriteHex(filename string, msg []byte) error {
 	if err1 != nil {
 		return err1
 	}
-	//for i, _ := range hexString{
-	//	_, err1 := fmt.Fprintf(file, "%s", string(hexString[i]))
-	//	if err1 != nil {
-	//		return err1
-	//	}
-	//}
-
-	//file, err := os.OpenFile(filename, os.O_APPEND, 0666)
-	//if err != nil{
-	//	fmt.Println("Open file err =", err)
-	//	return err
-	//}
-	//defer file.Close()
-	//for i, _ := range msg{
-	//	_, err1 := fmt.Fprintf(file, "%02X", msg[i])
-	//	if err1 != nil {
-	//		return err1
-	//	}
-	//}
 	return nil
 }
 
