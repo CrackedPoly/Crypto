@@ -46,7 +46,7 @@ func ParsePriKey(pvkfile string) *rsa.PrivateKey {
 
 	bytes, _ := ioutil.ReadFile(pvkfile + ".pem")
 	block, _ := pem.Decode(bytes)
-	if block == nil || block.Type != "RSA PRIVATE KEY" {
+	if block == nil || block.Type != "rsa_impl PRIVATE KEY" {
 		log.Fatal("failed to decode PEM block containing private key")
 	}
 	priKey, _ := x509.ParsePKCS1PrivateKey(block.Bytes)
