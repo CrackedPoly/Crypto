@@ -24,11 +24,11 @@ func GenkeyAction(ctx *cli.Context) error {
 	fmt.Println("n: ", nString)
 	fmt.Println("e: ", eString)
 	fmt.Println("d: ", dString)
-	utils.WriteHex("p.txt", pString)
-	utils.WriteHex("q.txt", qString)
-	utils.WriteHex("n.txt", nString)
-	utils.WriteHex("e.txt", eString)
-	utils.WriteHex("d.txt", dString)
+	utils.WriteStringHex("p.txt", pString)
+	utils.WriteStringHex("q.txt", qString)
+	utils.WriteStringHex("n.txt", nString)
+	utils.WriteStringHex("e.txt", eString)
+	utils.WriteStringHex("d.txt", dString)
 	return nil
 }
 
@@ -37,14 +37,14 @@ func EncryptAction(ctx *cli.Context) error {
 	efile := ctx.String("e")
 	cipherfile := ctx.String("c")
 
-	plaintext := utils.ReadHex(plainfile)
-	s := utils.ReadHex(efile)
+	plaintext := utils.ReadStringHex(plainfile)
+	s := utils.ReadStringHex(efile)
 	fmt.Println("public key: ", s)
 	tmp := strings.Fields(s)
 	Rsa := rsa.NewCheck(tmp[0], tmp[1])
 	cipher := Rsa.Encrypt(plaintext)
 	fmt.Println("cipher: ", cipher)
-	utils.WriteHex(cipherfile, cipher)
+	utils.WriteStringHex(cipherfile, cipher)
 	return nil
 }
 
@@ -53,14 +53,14 @@ func SignAction(ctx *cli.Context) error {
 	efile := ctx.String("e")
 	cipherfile := ctx.String("c")
 
-	plaintext := utils.ReadHex(plainfile)
-	s := utils.ReadHex(efile)
+	plaintext := utils.ReadStringHex(plainfile)
+	s := utils.ReadStringHex(efile)
 	fmt.Println("private key: ", s)
 	tmp := strings.Fields(s)
 	Rsa := rsa.NewSign(tmp[0], tmp[1])
 	cipher := Rsa.Decrypt(plaintext)
 	fmt.Println("signed message: ", cipher)
-	utils.WriteHex(cipherfile, cipher)
+	utils.WriteStringHex(cipherfile, cipher)
 	return nil
 }
 

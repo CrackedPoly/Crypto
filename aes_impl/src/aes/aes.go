@@ -4,8 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
+	"github.com/UnknwoonUser/Crypto/utils"
 )
 
 var sbox = [256]byte{
@@ -64,8 +63,6 @@ type AES struct {
 	key []byte
 }
 
-type paddingFunc func(*[]byte, int)
-
 func NewAES(key []byte) (*AES, error) {
 	var nk, nr, length int
 	switch len(key) {
@@ -93,81 +90,6 @@ func NewAES(key []byte) (*AES, error) {
 	}, nil
 }
 
-func ReadHex(filename string) []byte {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		fmt.Println("File reading error: ", err)
-		return nil
-	}
-	for i, _ := range data {
-		if data[i] >= 'a' && data[i] <= 'f' {
-			data[i] = data[i] - 'a' + 'A'
-		}
-	}
-	msg := make([]byte, len(data)/2)
-	for i, _ := range msg {
-		if data[2*i] >= 'A' && data[2*i] <= 'F' {
-			msg[i] = (data[2*i] - 'A' + 10) << 4
-		} else if data[2*i] >= '0' && data[2*i] <= '9' {
-			msg[i] = (data[2*i] - '0') << 4
-		}
-
-		if data[2*i+1] >= 'A' && data[2*i+1] <= 'F' {
-			msg[i] ^= data[2*i+1] - 'A' + 10
-		} else if data[2*i+1] >= '0' && data[2*i+1] <= '9' {
-			msg[i] ^= data[2*i+1] - '0'
-		}
-	}
-	return msg
-}
-
-func WriteHex(filename string, msg []byte) error {
-	file, err := os.OpenFile(filename, os.O_APPEND, 0666)
-	if err != nil {
-		fmt.Println("Open file err =", err)
-		return err
-	}
-	defer file.Close()
-
-	var test string
-	test = fmt.Sprintf("%02X", msg)
-	_, err1 := file.WriteString(test)
-	if err1 != nil {
-		return err1
-	}
-	return nil
-}
-
-//
-func DumpWords(msg string, in []uint32) {
-	fmt.Printf("%s", msg)
-	for i, v := range in {
-		if i%4 == 0 {
-			fmt.Printf("\nw[%02d]: %.8X ", i/4, v)
-		} else {
-			fmt.Printf("%.8X ", v)
-		}
-	}
-	fmt.Println("\n")
-}
-
-//
-func DumpBytes(msg string, in []byte) {
-	fmt.Printf("%s", msg)
-	for i, v := range in {
-		if i%16 == 0 {
-			fmt.Printf("\nblock[%d]: %02X", i/16, v)
-		} else {
-			if i%4 == 0 {
-				fmt.Printf(" %02X", v)
-			} else {
-				fmt.Printf("%02X", v)
-			}
-		}
-	}
-	fmt.Println("\n")
-}
-
 // LittleEndian or BigEndian matters.
 func (a *AES) keyExpansion() []uint32 {
 	var w []uint32
@@ -188,31 +110,31 @@ func (a *AES) keyExpansion() []uint32 {
 		}
 	}
 
-	//DumpWords("keyExpansion:", w)
+	utils.DumpWords("keyExpansion:", w)
 	return w
 }
 
-func (a *AES) EncryptECB(in []byte, pad paddingFunc) {
+func (a *AES) EncryptECB(in []byte, pad utils.PaddingFunc) {
 	pad(&in, a.len)
 	roundKeys := a.keyExpansion()
 	for i := 0; i < len(in); i += 16 {
 		a.encryptBlock(in[i:i+16], roundKeys)
 	}
-	//fmt.Printf("aes_impl-%d ECB encrypted cipher:\n", a.len*8)
-	//DumpBytes("", in)
+	fmt.Printf("aes_impl-%d ECB encrypted cipher:\n", a.len*8)
+	utils.DumpBytes("", in)
 }
 
-func (a *AES) DecryptECB(in []byte) {
-	//pad(&in, a.len)
+func (a *AES) DecryptECB(in []byte, unpad utils.UnpaddingFunc) {
 	roundKeys := a.keyExpansion()
 	for i := 0; i < len(in); i += 16 {
 		a.decryptBlock(in[i:i+16], roundKeys)
 	}
-	//fmt.Printf("aes_impl-%d ECB decrypted plaintext:", a.len*8)
-	//DumpBytes("", in)
+	unpad(&in)
+	fmt.Printf("aes_impl-%d ECB decrypted plaintext:", a.len*8)
+	utils.DumpBytes("", in)
 }
 
-func (a *AES) EncryptCBC(in []byte, iv []byte, pad paddingFunc) {
+func (a *AES) EncryptCBC(in []byte, iv []byte, pad utils.PaddingFunc) {
 	pad(&in, a.len)
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
@@ -223,11 +145,11 @@ func (a *AES) EncryptCBC(in []byte, iv []byte, pad paddingFunc) {
 		a.encryptBlock(in[i:i+16], roundKeys)
 		copy(ivTmp, in[i:i+16])
 	}
-	//fmt.Printf("aes_impl-%d CBC encrypted cipher:\n", a.len*8)
-	//DumpBytes("", in)
+	fmt.Printf("aes_impl-%d CBC encrypted cipher:\n", a.len*8)
+	utils.DumpBytes("", in)
 }
 
-func (a *AES) DecryptCBC(in []byte, iv []byte) {
+func (a *AES) DecryptCBC(in []byte, iv []byte, unpad utils.UnpaddingFunc) {
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
@@ -239,11 +161,12 @@ func (a *AES) DecryptCBC(in []byte, iv []byte) {
 		Xor(in[i:i+16], ivTmp)
 		copy(ivTmp, reg)
 	}
-	//fmt.Printf("aes_impl-%d CBC decrypted plaintext:", a.len*8)
-	//DumpBytes("", in)
+	unpad(&in)
+	fmt.Printf("aes_impl-%d CBC decrypted plaintext:", a.len*8)
+	utils.DumpBytes("", in)
 }
 
-func (a *AES) EncryptCFB32(in []byte, iv []byte, pad paddingFunc) {
+func (a *AES) EncryptCFB32(in []byte, iv []byte, pad utils.PaddingFunc) {
 	pad(&in, 4)
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
@@ -254,11 +177,11 @@ func (a *AES) EncryptCFB32(in []byte, iv []byte, pad paddingFunc) {
 		Xor(in[i:i+4], ivTmp[0:4])
 		ivTmp = append(ivTmp[4:], in[i:i+4]...)
 	}
-	//fmt.Printf("aes_impl-%d CFB32 encrypted cipher:\n", a.len*8)
-	//DumpBytes("", in)
+	fmt.Printf("aes_impl-%d CFB32 encrypted cipher:\n", a.len*8)
+	utils.DumpBytes("", in)
 }
 
-func (a *AES) DecryptCFB32(in []byte, iv []byte) {
+func (a *AES) DecryptCFB32(in []byte, iv []byte, unpad utils.UnpaddingFunc) {
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
@@ -270,11 +193,12 @@ func (a *AES) DecryptCFB32(in []byte, iv []byte) {
 		Xor(in[i:i+4], ivTmp[0:4])
 		ivTmp = append(ivTmp[4:], cipherTmp[i:i+4]...)
 	}
-	//fmt.Printf("aes_impl-%d CFB32 decrypted plaintext:", a.len*8)
-	//DumpBytes("", in)
+	unpad(&in)
+	fmt.Printf("aes_impl-%d CFB32 decrypted plaintext:", a.len*8)
+	utils.DumpBytes("", in)
 }
 
-func (a *AES) EncryptOFB32(in []byte, iv []byte, pad paddingFunc) {
+func (a *AES) EncryptOFB32(in []byte, iv []byte, pad utils.PaddingFunc) {
 	pad(&in, 4)
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
@@ -285,11 +209,11 @@ func (a *AES) EncryptOFB32(in []byte, iv []byte, pad paddingFunc) {
 		Xor(in[i:i+4], ivTmp[0:4])
 		ivTmp = append(ivTmp[4:], ivTmp[0:4]...)
 	}
-	//fmt.Printf("aes_impl-%d OFB32 encrypted cipher:\n", a.len*8)
-	//DumpBytes("", in)
+	fmt.Printf("aes_impl-%d OFB32 encrypted cipher:\n", a.len*8)
+	utils.DumpBytes("", in)
 }
 
-func (a *AES) DecryptOFB32(in []byte, iv []byte) {
+func (a *AES) DecryptOFB32(in []byte, iv []byte, unpad utils.UnpaddingFunc) {
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
@@ -299,15 +223,9 @@ func (a *AES) DecryptOFB32(in []byte, iv []byte) {
 		Xor(in[i:i+4], ivTmp[0:4])
 		iv = append(ivTmp[4:], ivTmp[0:4]...)
 	}
-	//fmt.Printf("aes_impl-%d OFB32 decrypted plaintext:", a.len*8)
-	//DumpBytes("", in)
-}
-
-//
-func PaddingZeros(in *[]byte, blockLen int) {
-	for len(*in)%blockLen != 0 {
-		*in = append(*in, 0x00)
-	}
+	unpad(&in)
+	fmt.Printf("aes_impl-%d OFB32 decrypted plaintext:", a.len*8)
+	utils.DumpBytes("", in)
 }
 
 //
