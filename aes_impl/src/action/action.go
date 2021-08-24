@@ -21,42 +21,42 @@ func EncryptAction(ctx *cli.Context) (err error) {
 
 	switch strings.ToTitle(mode) {
 	case "ECB":
-		msg := utils.ReadBytesHex(plainfile)
+		plain := utils.ReadBytesHex(plainfile)
 		key := utils.ReadBytesHex(keyfile)
 		_aes, err := aes.NewAES(key)
 		if err == nil {
-			_aes.EncryptECB(msg, utils.PaddingZeros)
-			utils.WriteBytesHex(cipherfile, msg)
+			cipher := _aes.EncryptECB(plain, utils.PKCS7Padding)
+			utils.WriteBytesHex(cipherfile, cipher)
 			//aes.DecryptECB(msg)
 		}
 	case "CBC":
-		msg := utils.ReadBytesHex(plainfile)
+		plain := utils.ReadBytesHex(plainfile)
 		key := utils.ReadBytesHex(keyfile)
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
 		if err == nil {
-			_aes.EncryptCBC(msg, iv, utils.PaddingZeros)
-			utils.WriteBytesHex(cipherfile, msg)
+			cipher := _aes.EncryptCBC(plain, iv, utils.PKCS7Padding)
+			utils.WriteBytesHex(cipherfile, cipher)
 			//aes.DecryptCBC(msg, iv)
 		}
 	case "CFB":
-		msg := utils.ReadBytesHex(plainfile)
+		plain := utils.ReadBytesHex(plainfile)
 		key := utils.ReadBytesHex(keyfile)
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
 		if err == nil {
-			_aes.EncryptCFB32(msg, iv, utils.PaddingZeros)
-			utils.WriteBytesHex(cipherfile, msg)
+			cipher := _aes.EncryptCFB(plain, iv, 16)
+			utils.WriteBytesHex(cipherfile, cipher)
 			//aes.DecryptCFB32(msg, iv)
 		}
 	case "OFB":
-		msg := utils.ReadBytesHex(plainfile)
+		plain := utils.ReadBytesHex(plainfile)
 		key := utils.ReadBytesHex(keyfile)
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
 		if err == nil {
-			_aes.EncryptOFB32(msg, iv, utils.PaddingZeros)
-			utils.WriteBytesHex(cipherfile, msg)
+			cipher := _aes.EncryptOFB(plain, iv)
+			utils.WriteBytesHex(cipherfile, cipher)
 			//aes.DecryptOFB32(msg, iv)
 		}
 	default:
@@ -78,8 +78,8 @@ func DecryptAction(ctx *cli.Context) (err error) {
 		key := utils.ReadBytesHex(keyfile)
 		_aes, err := aes.NewAES(key)
 		if err == nil {
-			_aes.DecryptECB(cipher, utils.UnpaddingZeros)
-			utils.WriteBytesHex(plainfile, cipher)
+			plain := _aes.DecryptECB(cipher, utils.PKCS7Unpadding)
+			utils.WriteBytesHex(plainfile, plain)
 		}
 	case "CBC":
 		cipher := utils.ReadBytesHex(cipherfile)
@@ -87,8 +87,8 @@ func DecryptAction(ctx *cli.Context) (err error) {
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
 		if err == nil {
-			_aes.DecryptCBC(cipher, iv, utils.UnpaddingZeros)
-			utils.WriteBytesHex(plainfile, cipher)
+			plain := _aes.DecryptCBC(cipher, iv, utils.PKCS7Unpadding)
+			utils.WriteBytesHex(plainfile, plain)
 		}
 	case "CFB":
 		cipher := utils.ReadBytesHex(cipherfile)
@@ -96,8 +96,8 @@ func DecryptAction(ctx *cli.Context) (err error) {
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
 		if err == nil {
-			_aes.DecryptCFB32(cipher, iv, utils.UnpaddingZeros)
-			utils.WriteBytesHex(plainfile, cipher)
+			plain := _aes.DecryptCFB(cipher, iv, 16)
+			utils.WriteBytesHex(plainfile, plain)
 		}
 	case "OFB":
 		cipher := utils.ReadBytesHex(cipherfile)
@@ -105,8 +105,8 @@ func DecryptAction(ctx *cli.Context) (err error) {
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
 		if err == nil {
-			_aes.DecryptOFB32(cipher, iv, utils.UnpaddingZeros)
-			utils.WriteBytesHex(plainfile, cipher)
+			plain := _aes.DecryptOFB(cipher, iv)
+			utils.WriteBytesHex(plainfile, plain)
 		}
 	default:
 		fmt.Println("Invalid mode!")
@@ -176,7 +176,7 @@ func AfterAction(ctx *cli.Context) (err error) {
 //if err == nil {
 //start := time.Now() // 获取当前时间
 //for i := 0; i < 10; i++ {
-//aes.EncryptECB(msg, Aes.PaddingZeros)
+//aes.EncryptECB(msg, Aes.ZeroPadding)
 //}
 //for i := 0; i < 10; i++ {
 //aes.DecryptECB(msg)
@@ -194,7 +194,7 @@ func AfterAction(ctx *cli.Context) (err error) {
 //if err == nil {
 //start := time.Now() // 获取当前时间
 //for i := 0; i < 10; i++ {
-//aes.EncryptCBC(msg, iv, Aes.PaddingZeros)
+//aes.EncryptCBC(msg, iv, Aes.ZeroPadding)
 //}
 //for i := 0; i < 10; i++ {
 //aes.DecryptCBC(msg, iv)
@@ -212,7 +212,7 @@ func AfterAction(ctx *cli.Context) (err error) {
 //if err == nil {
 //start := time.Now() // 获取当前时间
 //for i := 0; i < 10; i++ {
-//aes.EncryptCFB32(msg, iv, Aes.PaddingZeros)
+//aes.EncryptCFB32(msg, iv, Aes.ZeroPadding)
 //}
 //for i := 0; i < 10; i++ {
 //aes.DecryptCFB32(msg, iv)
@@ -230,7 +230,7 @@ func AfterAction(ctx *cli.Context) (err error) {
 //if err == nil {
 //start := time.Now() // 获取当前时间
 //for i := 0; i < 10; i++ {
-//aes.EncryptOFB32(msg, iv, Aes.PaddingZeros)
+//aes.EncryptOFB32(msg, iv, Aes.ZeroPadding)
 //}
 //for i := 0; i < 10; i++ {
 //aes.DecryptOFB32(msg, iv)

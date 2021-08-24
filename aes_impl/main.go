@@ -37,10 +37,9 @@ func main() {
 						Required: true,
 					},
 					&cli.StringFlag{
-						Name:     "vifile",
-						Usage:    "指定初始化向量文件的位置和名称",
-						Aliases:  []string{"v"},
-						Required: true,
+						Name:    "vifile",
+						Usage:   "指定初始化向量文件的位置和名称",
+						Aliases: []string{"v"},
 					},
 					&cli.StringFlag{
 						Name:     "cipherfile",

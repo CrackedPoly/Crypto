@@ -12,6 +12,10 @@ import (
 	"strings"
 )
 
+// GenkeyAction
+// @Description:
+// @param ctx
+// @return error
 func GenkeyAction(ctx *cli.Context) error {
 	Rsa := rsa.NewRSA(256)
 	pString := Rsa.P.Text(16)

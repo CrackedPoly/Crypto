@@ -51,18 +51,16 @@ var rcon = [10]uint32{
 }
 
 type AES struct {
-	// number of rounds
-	nr int
-	// number of word in the key
-	nk int
-	// number(word) of block
-	nb int
-	// length(bit) of block
-	len int
-	// key
-	key []byte
+	nr  int    // number of rounds
+	nk  int    // number of word in the key
+	nb  int    // number(word) of block
+	len int    // length(bit) of block
+	key []byte // key
 }
 
+// NewAES returns a pointer of type AES and an error.
+// The encryption type of AES depends on the length of the key.
+// For example, bytes[0:16] will get an AES-128.
 func NewAES(key []byte) (*AES, error) {
 	var nk, nr, length int
 	switch len(key) {
@@ -79,7 +77,7 @@ func NewAES(key []byte) (*AES, error) {
 		nr = 14
 		length = 32
 	default:
-		return nil, errors.New("Invalid key length.")
+		return nil, errors.New("invalid key length")
 	}
 	return &AES{
 		nr:  nr,
@@ -90,11 +88,14 @@ func NewAES(key []byte) (*AES, error) {
 	}, nil
 }
 
-// LittleEndian or BigEndian matters.
+// keyExpansion returns an uint32 slice presenting round keys
+// (an uint32 for a key) in encryption. The number of round keys
+// is determined by the type of encryption. For example, 11 round
+// keys is in AES-128.
 func (a *AES) keyExpansion() []uint32 {
 	var w []uint32
 	var j int
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 4; i++ { // LittleEndian or BigEndian matters.
 		w = append(w, binary.BigEndian.Uint32(a.key[4*i:4*i+4]))
 	}
 	for i := 4; (j < 10) || (i%4 != 0); i++ {
@@ -114,135 +115,174 @@ func (a *AES) keyExpansion() []uint32 {
 	return w
 }
 
-func (a *AES) EncryptECB(in []byte, pad utils.PaddingFunc) {
-	pad(&in, a.len)
+// EncryptECB returns the cipher of ECB-mode encryption.
+func (a *AES) EncryptECB(in []byte, pad utils.PaddingFunc) []byte {
 	roundKeys := a.keyExpansion()
-	for i := 0; i < len(in); i += 16 {
-		a.encryptBlock(in[i:i+16], roundKeys)
+	in = pad(in, a.len)
+
+	for i := 0; i < len(in); i += a.len {
+		a.encryptBlock(in[i:i+a.len], roundKeys)
 	}
+
 	fmt.Printf("aes_impl-%d ECB encrypted cipher:\n", a.len*8)
 	utils.DumpBytes("", in)
+	return in
 }
 
-func (a *AES) DecryptECB(in []byte, unpad utils.UnpaddingFunc) {
+// DecryptECB returns the plaintext of ECB-mode decryption.
+func (a *AES) DecryptECB(in []byte, unpad utils.UnpaddingFunc) []byte {
 	roundKeys := a.keyExpansion()
-	for i := 0; i < len(in); i += 16 {
-		a.decryptBlock(in[i:i+16], roundKeys)
+
+	for i := 0; i < len(in); i += a.len {
+		a.decryptBlock(in[i:i+a.len], roundKeys)
 	}
-	unpad(&in)
+
+	in = unpad(in)
 	fmt.Printf("aes_impl-%d ECB decrypted plaintext:", a.len*8)
 	utils.DumpBytes("", in)
+	return in
 }
 
-func (a *AES) EncryptCBC(in []byte, iv []byte, pad utils.PaddingFunc) {
-	pad(&in, a.len)
+// EncryptCBC returns the cipher of CBC-mode encryption.
+// The iv must be the equal size of an AES block.
+func (a *AES) EncryptCBC(in []byte, iv []byte, pad utils.PaddingFunc) []byte {
 	roundKeys := a.keyExpansion()
+	in = pad(in, a.len)
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 
 	for i := 0; i < len(in); i += 16 {
-		Xor(in[i:i+16], ivTmp)
-		a.encryptBlock(in[i:i+16], roundKeys)
-		copy(ivTmp, in[i:i+16])
+		Xor(in[i:i+a.len], ivTmp)
+		a.encryptBlock(in[i:i+a.len], roundKeys)
+		copy(ivTmp, in[i:i+a.len])
 	}
+
 	fmt.Printf("aes_impl-%d CBC encrypted cipher:\n", a.len*8)
 	utils.DumpBytes("", in)
+	return in
 }
 
-func (a *AES) DecryptCBC(in []byte, iv []byte, unpad utils.UnpaddingFunc) {
+// DecryptCBC returns the plaintext of CBC-mode decryption.
+// The iv must be the equal size of an AES block.
+func (a *AES) DecryptCBC(in []byte, iv []byte, unpad utils.UnpaddingFunc) []byte {
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
-	reg := make([]byte, len(iv))
+	reg := make([]byte, a.len)
 
-	for i := 0; i < len(in); i += 16 {
-		copy(reg, in[i:i+16])
-		a.decryptBlock(in[i:i+16], roundKeys)
-		Xor(in[i:i+16], ivTmp)
+	for i := 0; i < len(in); i += a.len {
+		copy(reg, in[i:i+a.len])
+		a.decryptBlock(in[i:i+a.len], roundKeys)
+		Xor(in[i:i+a.len], ivTmp)
 		copy(ivTmp, reg)
 	}
-	unpad(&in)
+
+	in = unpad(in)
 	fmt.Printf("aes_impl-%d CBC decrypted plaintext:", a.len*8)
 	utils.DumpBytes("", in)
+	return in
 }
 
-func (a *AES) EncryptCFB32(in []byte, iv []byte, pad utils.PaddingFunc) {
-	pad(&in, 4)
+// EncryptCFB encrypts every s bytes of plaintext, with
+// s at least 1 and no more than the size of an AES block.
+// The iv must be the equal size of an AES block.
+func (a *AES) EncryptCFB(in []byte, iv []byte, s int) []byte {
 	roundKeys := a.keyExpansion()
-	ivTmp := make([]byte, len(iv))
+	ivTmp := make([]byte, a.len)
 	copy(ivTmp, iv)
 
-	for i := 0; i < len(in); i += 4 {
+	i := 0
+	for ; i < len(in)-s; i += s {
 		a.encryptBlock(ivTmp, roundKeys)
-		Xor(in[i:i+4], ivTmp[0:4])
-		ivTmp = append(ivTmp[4:], in[i:i+4]...)
+		Xor(in[i:i+s], ivTmp[0:s])
+		ivTmp = append(ivTmp[s:], in[i:i+s]...)
 	}
-	fmt.Printf("aes_impl-%d CFB32 encrypted cipher:\n", a.len*8)
+	a.encryptBlock(ivTmp, roundKeys)
+	Xor(in[i:], ivTmp[0:s]) // process on the last bytes (less than s)
+
+	fmt.Printf("aes_impl-%d CFB with %d-bytes shift encrypted cipher:\n", a.len*8, s)
 	utils.DumpBytes("", in)
+	return in
 }
 
-func (a *AES) DecryptCFB32(in []byte, iv []byte, unpad utils.UnpaddingFunc) {
+// DecryptCFB decrypts every s bytes of ciphertext, with
+// s at least 1 and no more than the size of an AES block.
+// The iv must be the equal size of an AES block.
+func (a *AES) DecryptCFB(in []byte, iv []byte, s int) []byte {
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 	cipherTmp := make([]byte, len(in))
 	copy(cipherTmp, in)
 
-	for i := 0; i < len(in); i += 4 {
+	i := 0
+	for ; i < len(in)-s; i += s {
 		a.encryptBlock(ivTmp, roundKeys)
-		Xor(in[i:i+4], ivTmp[0:4])
-		ivTmp = append(ivTmp[4:], cipherTmp[i:i+4]...)
+		Xor(in[i:i+s], ivTmp[0:s])
+		ivTmp = append(ivTmp[s:], cipherTmp[i:i+s]...)
 	}
-	unpad(&in)
-	fmt.Printf("aes_impl-%d CFB32 decrypted plaintext:", a.len*8)
+	a.encryptBlock(ivTmp, roundKeys)
+	Xor(in[i:], ivTmp[0:s])
+
+	fmt.Printf("aes_impl-%d CFB with %d-bytes shift decrypted plaintext:\n", a.len*8, s)
 	utils.DumpBytes("", in)
+	return in
 }
 
-func (a *AES) EncryptOFB32(in []byte, iv []byte, pad utils.PaddingFunc) {
-	pad(&in, 4)
+// EncryptOFB returns the cipher of OFB-mode encryption.
+// The iv must be the equal size of an AES block.
+func (a *AES) EncryptOFB(in []byte, iv []byte) []byte {
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 
-	for i := 0; i < len(in); i += 4 {
+	i := 0
+	for ; i < len(in)-a.len; i += a.len {
 		a.encryptBlock(ivTmp, roundKeys)
-		Xor(in[i:i+4], ivTmp[0:4])
-		ivTmp = append(ivTmp[4:], ivTmp[0:4]...)
+		Xor(in[i:i+a.len], ivTmp)
 	}
-	fmt.Printf("aes_impl-%d OFB32 encrypted cipher:\n", a.len*8)
+	a.encryptBlock(ivTmp, roundKeys)
+	Xor(in[i:], ivTmp)
+
+	fmt.Printf("aes_impl-%d OFB encrypted cipher:\n", a.len*8)
 	utils.DumpBytes("", in)
+	return in
 }
 
-func (a *AES) DecryptOFB32(in []byte, iv []byte, unpad utils.UnpaddingFunc) {
+// DecryptOFB returns the plaintext of OFB-mode decryption.
+// The iv must be the equal size of an AES block.
+func (a *AES) DecryptOFB(in []byte, iv []byte) []byte {
 	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 
-	for i := 0; i < len(in); i += 4 {
+	i := 0
+	for ; i < len(in)-a.len; i += a.len {
 		a.encryptBlock(ivTmp, roundKeys)
-		Xor(in[i:i+4], ivTmp[0:4])
-		iv = append(ivTmp[4:], ivTmp[0:4]...)
+		Xor(in[i:i+a.len], ivTmp)
 	}
-	unpad(&in)
-	fmt.Printf("aes_impl-%d OFB32 decrypted plaintext:", a.len*8)
+	a.encryptBlock(ivTmp, roundKeys)
+	Xor(in[i:], ivTmp)
+
+	fmt.Printf("aes_impl-%d OFB decrypted plaintext:", a.len*8)
 	utils.DumpBytes("", in)
+	return in
 }
 
-//
+// subBytes operation in AES encryption.
 func (a *AES) subBytes(state []byte) {
 	for i, v := range state {
 		state[i] = sbox[v]
 	}
 }
 
-//
+// invSubBytes operation in AES decryption.
 func (a *AES) invSubBytes(state []byte) {
 	for i, v := range state {
 		state[i] = inv_sbox[v]
 	}
 }
 
-//
 func (a *AES) shiftRow(in []byte, i int, n int) {
 	in[i], in[i+4*1], in[i+4*2], in[i+4*3] = in[i+4*(n%4)], in[i+4*((n+1)%4)], in[i+4*((n+2)%4)], in[i+4*((n+3)%4)]
 }
@@ -251,26 +291,24 @@ func RotWord(in []byte) {
 	in[0], in[1], in[2], in[3] = in[1], in[2], in[3], in[0]
 }
 
-//
+// shiftRows operation in AES encryption.
 func (a *AES) shiftRows(state []byte) {
 	a.shiftRow(state, 1, 1)
 	a.shiftRow(state, 2, 2)
 	a.shiftRow(state, 3, 3)
 }
 
-//
+// invShiftRows operation in AES decryption.
 func (a *AES) invShiftRows(state []byte) {
 	a.shiftRow(state, 1, 3)
 	a.shiftRow(state, 2, 2)
 	a.shiftRow(state, 3, 1)
 }
 
-//
 func xtime(in byte) byte {
 	return (in << 1) ^ (((in >> 7) & 1) * 0x1b)
 }
 
-//
 func xtimes(in byte, ts int) byte {
 	for ts > 0 {
 		in = xtime(in)
@@ -279,7 +317,6 @@ func xtimes(in byte, ts int) byte {
 	return in
 }
 
-//
 func mulBytes(x byte, y byte) byte {
 	return (((y >> 0) & 0x01) * xtimes(x, 0)) ^
 		(((y >> 1) & 0x01) * xtimes(x, 1)) ^
@@ -291,7 +328,6 @@ func mulBytes(x byte, y byte) byte {
 		(((y >> 7) & 0x01) * xtimes(x, 7))
 }
 
-//
 func mulWords(x []byte, y []byte) {
 	tmp := make([]byte, 4)
 	copy(tmp, x)
@@ -302,7 +338,7 @@ func mulWords(x []byte, y []byte) {
 	x[3] = mulBytes(tmp[0], y[0]) ^ mulBytes(tmp[1], y[1]) ^ mulBytes(tmp[2], y[2]) ^ mulBytes(tmp[3], y[3])
 }
 
-//
+// mixColumns operation in AES encryption.
 func (a *AES) mixColumns(state []byte) {
 	s := []byte{0x03, 0x01, 0x01, 0x02}
 	for i := 0; i < len(state); i += 4 {
@@ -310,7 +346,7 @@ func (a *AES) mixColumns(state []byte) {
 	}
 }
 
-//
+// invMixColumns operation in AES decryption.
 func (a *AES) invMixColumns(state []byte) {
 	s := []byte{0x0b, 0x0d, 0x09, 0x0e}
 	for i := 0; i < len(state); i += 4 {
@@ -318,16 +354,16 @@ func (a *AES) invMixColumns(state []byte) {
 	}
 }
 
-//
+// Xor exposes xor to x.
 func Xor(x []byte, y []byte) {
-	if len(x) == len(y) {
+	if len(x) <= len(y) {
 		for i := 0; i < len(x); i++ {
 			x[i] = x[i] ^ y[i]
 		}
 	}
 }
 
-//
+// addRoundKey operation in AES.
 func (a *AES) addRoundKey(state []byte, w []uint32) {
 	tmp := make([]byte, a.len)
 	for i := 0; i < len(w); i += 1 {
@@ -336,22 +372,21 @@ func (a *AES) addRoundKey(state []byte, w []uint32) {
 	Xor(state, tmp)
 }
 
+// encryptBlock encrypts one block in the plaintext.
 func (a *AES) encryptBlock(state []byte, roundKeys []uint32) {
 	a.addRoundKey(state, roundKeys[0:4])
 	for round := 1; round < a.nr; round++ {
-		a.subBytes(state)  //ok
-		a.shiftRows(state) //ok
+		a.subBytes(state)
+		a.shiftRows(state)
 		a.mixColumns(state)
-		a.addRoundKey(state, roundKeys[4*round:4*round+4]) //ok
-		//if round == 1 {
-		//DumpBytes("第1轮加密结果：", state)
-		//}
+		a.addRoundKey(state, roundKeys[4*round:4*round+4])
 	}
 	a.subBytes(state)
 	a.shiftRows(state)
 	a.addRoundKey(state, roundKeys[a.nr*4:a.nr*4+4])
 }
 
+// decryptBlock decrypts one block in the ciphertext.
 func (a *AES) decryptBlock(state []byte, roundKeys []uint32) {
 	a.addRoundKey(state, roundKeys[a.nr*4:a.nr*4+4])
 	for round := a.nr - 1; round > 0; round-- {

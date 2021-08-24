@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
-type PaddingFunc func(*[]byte, int)
+type PaddingFunc func([]byte, int) []byte
 
-type UnpaddingFunc func(*[]byte)
+type UnpaddingFunc func([]byte) []byte
 
 func ReadStringHex(filename string) string {
 	f, err := ioutil.ReadFile(filename)
@@ -26,27 +27,28 @@ func WriteStringHex(filename string, msg string) {
 }
 
 func ReadBytesHex(filename string) []byte {
-	file, err := os.OpenFile(filename, os.O_RDONLY, 0666)
+	tmp, err := ioutil.ReadFile(filename)
 	if err != nil {
-		fmt.Println("File reading error: ", err)
-		return nil
+		fmt.Println("Error in reading", filename, err)
 	}
-	defer file.Close()
-
-	var tmp []byte
-	_, _ = fmt.Fscanf(file, "%X", &tmp)
-	return tmp
+	if len(tmp)%2 == 1 { // add an '0' in the [-2] position.
+		tmp = append(tmp[:len(tmp)-1], byte('0'), tmp[len(tmp)-1])
+	}
+	hexStringReader := strings.NewReader(string(tmp))
+	tmp2 := make([]byte, len(tmp)/2)
+	_, err = fmt.Fscanf(hexStringReader, "%x", &tmp2)
+	return tmp2
 }
 
 func WriteBytesHex(filename string, msg []byte) {
-	file, err := os.OpenFile(filename, os.O_WRONLY, 0666)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		fmt.Println("Open file err =", err)
 		return
 	}
 	defer file.Close()
 
-	_, err = fmt.Fprintf(file, "%02X", msg)
+	_, err = fmt.Fprintf(file, "%x", msg)
 	if err != nil {
 		return
 	}
@@ -57,9 +59,9 @@ func DumpWords(note string, in []uint32) {
 	fmt.Printf("%s", note)
 	for i, v := range in {
 		if i%4 == 0 {
-			fmt.Printf("\nword[%02d]: %.8X ", i/4, v)
+			fmt.Printf("\nword[%02d]: %.8x ", i/4, v)
 		} else {
-			fmt.Printf("%.8X ", v)
+			fmt.Printf("%.8x ", v)
 		}
 	}
 	fmt.Println("\n")
@@ -69,27 +71,52 @@ func DumpBytes(note string, in []byte) {
 	fmt.Printf("%s", note)
 	for i, v := range in {
 		if i%16 == 0 {
-			fmt.Printf("\nblock[%d]: %02X", i/16, v)
+			fmt.Printf("\nblock[%d]: %02x", i/16, v)
 		} else {
 			if i%4 == 0 {
-				fmt.Printf(" %02X", v)
+				fmt.Printf(" %02x", v)
 			} else {
-				fmt.Printf("%02X", v)
+				fmt.Printf("%02x", v)
 			}
 		}
 	}
 	fmt.Println("\n")
 }
 
-//
-func PaddingZeros(in *[]byte, blockLen int) {
-	for len(*in)%blockLen != 0 {
-		*in = append(*in, 0x00)
+func ZeroPadding(in []byte, blockLen int) []byte {
+	tmp := make([]byte, len(in))
+	copy(tmp, in)
+
+	remainder := len(tmp) % blockLen
+	for i := 0; i < blockLen-remainder; i++ {
+		tmp = append(tmp, 0x00)
 	}
+	return tmp
 }
 
-func UnpaddingZeros(in *[]byte) {
-	for (*in)[len(*in)-1] == 0x00 {
-		*in = (*in)[:len(*in)-1]
+func ZeroUnpadding(in []byte) []byte {
+	for in[len(in)-1] == 0x00 {
+		in = in[:len(in)-1]
 	}
+	tmp := make([]byte, len(in))
+	copy(tmp, in)
+	return tmp
+}
+
+func PKCS7Padding(in []byte, blockLen int) []byte {
+	tmp := make([]byte, len(in))
+	copy(tmp, in)
+
+	rmd := len(tmp) % blockLen
+	for i := 0; i < blockLen-rmd; i++ {
+		tmp = append(tmp, byte(blockLen-rmd))
+	}
+	return tmp
+}
+
+func PKCS7Unpadding(in []byte) []byte {
+	last := int(in[len(in)-1])
+	tmp := make([]byte, len(in)-last)
+	copy(tmp, in[:len(in)-last])
+	return tmp
 }
