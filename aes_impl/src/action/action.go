@@ -19,54 +19,33 @@ func EncryptAction(ctx *cli.Context) (err error) {
 	vifile := ctx.String("v")
 	cipherfile := ctx.String("c")
 
+	plain := utils.ReadBytesHex(plainfile)
+	key := utils.ReadBytesHex(keyfile)
+	iv := utils.ReadBytesHex(vifile)
+
+	_aes, err := aes.NewAES(key)
+	if err != nil {
+		log.Error("%s", err)
+		return err
+	}
+	var ciphertext []byte
+
 	switch strings.ToTitle(mode) {
 	case "ECB":
-		plain := utils.ReadBytesHex(plainfile)
-		key := utils.ReadBytesHex(keyfile)
-		_aes, err := aes.NewAES(key)
-		if err != nil {
-			log.Error("%s", err)
-			return err
-		}
-		cipher := _aes.EncryptECB(plain, utils.PKCS7Padding)
-		utils.WriteBytesHex(cipherfile, cipher)
+		ciphertext = _aes.EncryptECB(plain, utils.PKCS7Padding)
 	case "CBC":
-		plain := utils.ReadBytesHex(plainfile)
-		key := utils.ReadBytesHex(keyfile)
-		iv := utils.ReadBytesHex(vifile)
-		_aes, err := aes.NewAES(key)
-		if err != nil {
-			log.Error("%s", err)
-			return err
-		}
-		cipher := _aes.EncryptCBC(plain, iv[0:16], utils.PKCS7Padding)
-		utils.WriteBytesHex(cipherfile, cipher)
+		ciphertext = _aes.EncryptCBC(plain, iv[0:16], utils.PKCS7Padding)
 	case "CFB":
-		plain := utils.ReadBytesHex(plainfile)
-		key := utils.ReadBytesHex(keyfile)
-		iv := utils.ReadBytesHex(vifile)
-		_aes, err := aes.NewAES(key)
-		if err != nil {
-			log.Error("%s", err)
-			return err
-		}
-		cipher := _aes.EncryptCFB(plain, iv[0:16], 16)
-		utils.WriteBytesHex(cipherfile, cipher)
+		ciphertext = _aes.EncryptCFB(plain, iv[0:16], 16)
 	case "OFB":
-		plain := utils.ReadBytesHex(plainfile)
-		key := utils.ReadBytesHex(keyfile)
-		iv := utils.ReadBytesHex(vifile)
-		_aes, err := aes.NewAES(key)
-		if err != nil {
-			log.Error("%s", err)
-			return err
-		}
-		cipher := _aes.EncryptOFB(plain, iv[0:16])
-		utils.WriteBytesHex(cipherfile, cipher)
+		ciphertext = _aes.EncryptOFB(plain, iv[0:16])
+	case "CTR":
+		ciphertext = _aes.EncryptCTR(plain, iv[0:16])
 	default:
 		log.Error("invalid mode")
 		return errors.New("invalid mode")
 	}
+	utils.WriteBytesHex(cipherfile, ciphertext)
 	return nil
 }
 
@@ -77,54 +56,32 @@ func DecryptAction(ctx *cli.Context) (err error) {
 	vifile := ctx.String("v")
 	cipherfile := ctx.String("c")
 
+	ciphertext := utils.ReadBytesHex(cipherfile)
+	key := utils.ReadBytesHex(keyfile)
+	iv := utils.ReadBytesHex(vifile)
+	_aes, err := aes.NewAES(key)
+	if err != nil {
+		log.Error("%s", err)
+		return err
+	}
+
+	var plaintext []byte
 	switch strings.ToTitle(mode) {
 	case "ECB":
-		cipher := utils.ReadBytesHex(cipherfile)
-		key := utils.ReadBytesHex(keyfile)
-		_aes, err := aes.NewAES(key)
-		if err != nil {
-			log.Error("%s", err)
-			return err
-		}
-		plain := _aes.DecryptECB(cipher, utils.PKCS7Unpadding)
-		utils.WriteBytesHex(plainfile, plain)
+		plaintext = _aes.DecryptECB(ciphertext, utils.PKCS7Unpadding)
 	case "CBC":
-		cipher := utils.ReadBytesHex(cipherfile)
-		key := utils.ReadBytesHex(keyfile)
-		iv := utils.ReadBytesHex(vifile)
-		_aes, err := aes.NewAES(key)
-		if err != nil {
-			log.Error("%s", err)
-			return err
-		}
-		plain := _aes.DecryptCBC(cipher, iv[0:16], utils.PKCS7Unpadding)
-		utils.WriteBytesHex(plainfile, plain)
+		plaintext = _aes.DecryptCBC(ciphertext, iv[0:16], utils.PKCS7Unpadding)
 	case "CFB":
-		cipher := utils.ReadBytesHex(cipherfile)
-		key := utils.ReadBytesHex(keyfile)
-		iv := utils.ReadBytesHex(vifile)
-		_aes, err := aes.NewAES(key)
-		if err != nil {
-			log.Error("%s", err)
-			return err
-		}
-		plain := _aes.DecryptCFB(cipher, iv[0:16], 16)
-		utils.WriteBytesHex(plainfile, plain)
+		plaintext = _aes.DecryptCFB(ciphertext, iv[0:16], 16)
 	case "OFB":
-		cipher := utils.ReadBytesHex(cipherfile)
-		key := utils.ReadBytesHex(keyfile)
-		iv := utils.ReadBytesHex(vifile)
-		_aes, err := aes.NewAES(key)
-		if err == nil {
-			log.Error("%s", err)
-			return err
-		}
-		plain := _aes.DecryptOFB(cipher, iv[0:16])
-		utils.WriteBytesHex(plainfile, plain)
+		plaintext = _aes.DecryptOFB(ciphertext, iv[0:16])
+	case "CTR":
+		plaintext = _aes.EncryptCTR(ciphertext, iv[0:16])
 	default:
 		log.Error("invalid mode")
 		return errors.New("invalid mode")
 	}
+	utils.WriteBytesHex(plainfile, plaintext)
 	return nil
 }
 

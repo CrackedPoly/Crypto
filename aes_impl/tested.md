@@ -1,9 +1,10 @@
 |      | 128bit  | 192bit | 256bit |
 | ---- | ------- | ------ | ------ |
-| ECB  |       |        |        |
-| CBC  |   ✅   |   ✅   |   ✅   |
-| CFB  |       |       |       |
-| OFB  |       |       |       |
+| ECB  |   ✅    |   ✅   |   ✅  |
+| CBC  |   ✅    |   ✅   |   ✅  |
+| CFB  |   ✅    |   ✅   |   ✅  |
+| OFB  |   ✅    |   ✅   |   ✅  |
+| CTR  |   ✅    |   ✅   |   ✅  |
 
 Capital or lower hex letters doesn't matter.
 

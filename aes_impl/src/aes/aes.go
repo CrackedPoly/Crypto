@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/UnknwoonUser/Crypto/utils"
+	"math/big"
 )
 
 var sbox = [256]byte{
@@ -269,6 +270,53 @@ func (a *AES) DecryptOFB(in []byte, iv []byte) []byte {
 	Xor(in[i:], ivTmp)
 
 	fmt.Printf("aes_impl-%d OFB decrypted plaintext:", a.nk*32)
+	utils.DumpBytes("", in)
+	return in
+}
+
+// EncryptCTR returns the ciphertext of CTR-mode encryption.
+// The iv must be the equal size of an AES block.
+func (a *AES) EncryptCTR(in []byte, iv []byte) []byte {
+	roundKeys := a.keyExpansion()
+	ivTmp := make([]byte, len(iv))
+	copy(ivTmp, iv)
+	ivNumber := big.NewInt(0).SetBytes(iv)
+	one := big.NewInt(1)
+
+	i := 0
+	for ; i < len(in)-a.len; i += a.len {
+		a.encryptBlock(ivTmp, roundKeys)
+		Xor(in[i:i+a.len], ivTmp)
+		ivNumber.Add(ivNumber, one).FillBytes(ivTmp)
+	}
+	a.encryptBlock(ivTmp, roundKeys)
+	Xor(in[i:], ivTmp)
+
+	fmt.Printf("aes_impl-%d CTR encrypted ciphertext:", a.nk*32)
+	utils.DumpBytes("", in)
+	return in
+}
+
+// DecryptCTR returns the plaintext of CTR-mode decryption.
+// The iv must be the equal size of an AES block.
+// It is exactly the same with EncryptCTR.
+func (a *AES) DecryptCTR(in []byte, iv []byte) []byte {
+	roundKeys := a.keyExpansion()
+	ivTmp := make([]byte, len(iv))
+	copy(ivTmp, iv)
+	ivNumber := big.NewInt(0).SetBytes(iv)
+	one := big.NewInt(1)
+
+	i := 0
+	for ; i < len(in)-a.len; i += a.len {
+		a.encryptBlock(ivTmp, roundKeys)
+		Xor(in[i:i+a.len], ivTmp)
+		ivNumber.Add(ivNumber, one).FillBytes(ivTmp)
+	}
+	a.encryptBlock(ivTmp, roundKeys)
+	Xor(in[i:], ivTmp)
+
+	fmt.Printf("aes_impl-%d CTR decrypted ciphertext:", a.nk*32)
 	utils.DumpBytes("", in)
 	return in
 }
