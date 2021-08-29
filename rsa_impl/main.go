@@ -9,7 +9,7 @@ import (
 
 func main() {
 	var app = &cli.App{
-		Name:                 "应用密码学实践-2019141440070-罗鉴",
+		Name:                 "RSA encryption and signature",
 		Usage:                "RSA加解密和数字签名",
 		EnableBashCompletion: true,
 		Commands: cli.Commands{

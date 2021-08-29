@@ -31,7 +31,7 @@ func ReadBytesHex(filename string) []byte {
 	if err != nil {
 		fmt.Println("Error in reading", filename, err)
 	}
-	if len(tmp)%2 == 1 { // add an '0' in the [-2] position.
+	if len(tmp)%2 == 1 { // add an '0' to the [-2] position.
 		tmp = append(tmp[:len(tmp)-1], byte('0'), tmp[len(tmp)-1])
 	}
 	hexStringReader := strings.NewReader(string(tmp))

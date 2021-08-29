@@ -2,8 +2,8 @@ package action
 
 import (
 	"context"
+	"errors"
 	"flag"
-	"fmt"
 	"github.com/UnknwoonUser/Crypto/aes_impl/src/aes"
 	"github.com/UnknwoonUser/Crypto/utils"
 	"github.com/otokaze/go-kit/log"
@@ -24,43 +24,48 @@ func EncryptAction(ctx *cli.Context) (err error) {
 		plain := utils.ReadBytesHex(plainfile)
 		key := utils.ReadBytesHex(keyfile)
 		_aes, err := aes.NewAES(key)
-		if err == nil {
-			cipher := _aes.EncryptECB(plain, utils.PKCS7Padding)
-			utils.WriteBytesHex(cipherfile, cipher)
-			//aes.DecryptECB(msg)
+		if err != nil {
+			log.Error("%s", err)
+			return err
 		}
+		cipher := _aes.EncryptECB(plain, utils.PKCS7Padding)
+		utils.WriteBytesHex(cipherfile, cipher)
 	case "CBC":
 		plain := utils.ReadBytesHex(plainfile)
 		key := utils.ReadBytesHex(keyfile)
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
-		if err == nil {
-			cipher := _aes.EncryptCBC(plain, iv, utils.PKCS7Padding)
-			utils.WriteBytesHex(cipherfile, cipher)
-			//aes.DecryptCBC(msg, iv)
+		if err != nil {
+			log.Error("%s", err)
+			return err
 		}
+		cipher := _aes.EncryptCBC(plain, iv[0:16], utils.PKCS7Padding)
+		utils.WriteBytesHex(cipherfile, cipher)
 	case "CFB":
 		plain := utils.ReadBytesHex(plainfile)
 		key := utils.ReadBytesHex(keyfile)
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
-		if err == nil {
-			cipher := _aes.EncryptCFB(plain, iv, 16)
-			utils.WriteBytesHex(cipherfile, cipher)
-			//aes.DecryptCFB32(msg, iv)
+		if err != nil {
+			log.Error("%s", err)
+			return err
 		}
+		cipher := _aes.EncryptCFB(plain, iv[0:16], 16)
+		utils.WriteBytesHex(cipherfile, cipher)
 	case "OFB":
 		plain := utils.ReadBytesHex(plainfile)
 		key := utils.ReadBytesHex(keyfile)
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
-		if err == nil {
-			cipher := _aes.EncryptOFB(plain, iv)
-			utils.WriteBytesHex(cipherfile, cipher)
-			//aes.DecryptOFB32(msg, iv)
+		if err != nil {
+			log.Error("%s", err)
+			return err
 		}
+		cipher := _aes.EncryptOFB(plain, iv[0:16])
+		utils.WriteBytesHex(cipherfile, cipher)
 	default:
-		fmt.Println("Invalid mode!")
+		log.Error("invalid mode")
+		return errors.New("invalid mode")
 	}
 	return nil
 }
@@ -77,39 +82,48 @@ func DecryptAction(ctx *cli.Context) (err error) {
 		cipher := utils.ReadBytesHex(cipherfile)
 		key := utils.ReadBytesHex(keyfile)
 		_aes, err := aes.NewAES(key)
-		if err == nil {
-			plain := _aes.DecryptECB(cipher, utils.PKCS7Unpadding)
-			utils.WriteBytesHex(plainfile, plain)
+		if err != nil {
+			log.Error("%s", err)
+			return err
 		}
+		plain := _aes.DecryptECB(cipher, utils.PKCS7Unpadding)
+		utils.WriteBytesHex(plainfile, plain)
 	case "CBC":
 		cipher := utils.ReadBytesHex(cipherfile)
 		key := utils.ReadBytesHex(keyfile)
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
-		if err == nil {
-			plain := _aes.DecryptCBC(cipher, iv, utils.PKCS7Unpadding)
-			utils.WriteBytesHex(plainfile, plain)
+		if err != nil {
+			log.Error("%s", err)
+			return err
 		}
+		plain := _aes.DecryptCBC(cipher, iv[0:16], utils.PKCS7Unpadding)
+		utils.WriteBytesHex(plainfile, plain)
 	case "CFB":
 		cipher := utils.ReadBytesHex(cipherfile)
 		key := utils.ReadBytesHex(keyfile)
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
-		if err == nil {
-			plain := _aes.DecryptCFB(cipher, iv, 16)
-			utils.WriteBytesHex(plainfile, plain)
+		if err != nil {
+			log.Error("%s", err)
+			return err
 		}
+		plain := _aes.DecryptCFB(cipher, iv[0:16], 16)
+		utils.WriteBytesHex(plainfile, plain)
 	case "OFB":
 		cipher := utils.ReadBytesHex(cipherfile)
 		key := utils.ReadBytesHex(keyfile)
 		iv := utils.ReadBytesHex(vifile)
 		_aes, err := aes.NewAES(key)
 		if err == nil {
-			plain := _aes.DecryptOFB(cipher, iv)
-			utils.WriteBytesHex(plainfile, plain)
+			log.Error("%s", err)
+			return err
 		}
+		plain := _aes.DecryptOFB(cipher, iv[0:16])
+		utils.WriteBytesHex(plainfile, plain)
 	default:
-		fmt.Println("Invalid mode!")
+		log.Error("invalid mode")
+		return errors.New("invalid mode")
 	}
 	return nil
 }
@@ -168,75 +182,3 @@ func AfterAction(ctx *cli.Context) (err error) {
 		command.Action(nCtx)
 	}
 }
-
-//case "ECBTEST":
-//msg := Aes.ReadStringHex(plainfile)
-//key := Aes.ReadStringHex(keyfile)
-//aes, err := Aes.NewAES(key)
-//if err == nil {
-//start := time.Now() // 获取当前时间
-//for i := 0; i < 10; i++ {
-//aes.EncryptECB(msg, Aes.ZeroPadding)
-//}
-//for i := 0; i < 10; i++ {
-//aes.DecryptECB(msg)
-//}
-//elapsed := time.Since(start)
-//fmt.Println("十次加解密时间：", elapsed)
-//fmt.Println("速度：", 0.005/float64(elapsed), "MB/s")
-//aes.DecryptECB(msg)
-//}
-//case "CBCTEST":
-//msg := Aes.ReadStringHex(plainfile)
-//key := Aes.ReadStringHex(keyfile)
-//iv := Aes.ReadStringHex(vifile)
-//aes, err := Aes.NewAES(key)
-//if err == nil {
-//start := time.Now() // 获取当前时间
-//for i := 0; i < 10; i++ {
-//aes.EncryptCBC(msg, iv, Aes.ZeroPadding)
-//}
-//for i := 0; i < 10; i++ {
-//aes.DecryptCBC(msg, iv)
-//}
-//elapsed := time.Since(start)
-//fmt.Println("十次加解密时间：", elapsed)
-//fmt.Println("速度：", 0.005/float64(elapsed), "MB/s")
-//aes.DecryptCBC(msg, iv)
-//}
-//case "CFBTEST":
-//msg := Aes.ReadStringHex(plainfile)
-//key := Aes.ReadStringHex(keyfile)
-//iv := Aes.ReadStringHex(vifile)
-//aes, err := Aes.NewAES(key)
-//if err == nil {
-//start := time.Now() // 获取当前时间
-//for i := 0; i < 10; i++ {
-//aes.EncryptCFB32(msg, iv, Aes.ZeroPadding)
-//}
-//for i := 0; i < 10; i++ {
-//aes.DecryptCFB32(msg, iv)
-//}
-//elapsed := time.Since(start)
-//fmt.Println("十次加解密时间：", elapsed)
-//fmt.Println("速度：", 0.005/float64(elapsed), "MB/s")
-//aes.DecryptCBC(msg, iv)
-//}
-//case "OFBTEST":
-//msg := Aes.ReadStringHex(plainfile)
-//key := Aes.ReadStringHex(keyfile)
-//iv := Aes.ReadStringHex(vifile)
-//aes, err := Aes.NewAES(key)
-//if err == nil {
-//start := time.Now() // 获取当前时间
-//for i := 0; i < 10; i++ {
-//aes.EncryptOFB32(msg, iv, Aes.ZeroPadding)
-//}
-//for i := 0; i < 10; i++ {
-//aes.DecryptOFB32(msg, iv)
-//}
-//elapsed := time.Since(start)
-//fmt.Println("十次加解密时间：", elapsed)
-//fmt.Println("速度：", 0.005/float64(elapsed), "MB/s")
-//aes.DecryptCBC(msg, iv)
-//}

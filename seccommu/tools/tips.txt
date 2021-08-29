@@ -1,1 +1,2 @@
-architecture: Windows x64
+platform: Windows
+architecture: x86-64

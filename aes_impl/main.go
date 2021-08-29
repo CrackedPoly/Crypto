@@ -3,13 +3,14 @@ package main
 import (
 	"github.com/UnknwoonUser/Crypto/aes_impl/src/action"
 	"github.com/urfave/cli/v2"
+	"log"
 	"os"
 	"sort"
 )
 
 func main() {
 	var app = &cli.App{
-		Name:                 "应用密码学实践-2019141440070-罗鉴",
+		Name:                 "AES encryption and decryption",
 		Usage:                "AES加密与解密",
 		EnableBashCompletion: true,
 		Commands: cli.Commands{
@@ -95,6 +96,9 @@ func main() {
 	}
 
 	sort.Sort(cli.FlagsByName(app.Flags))
-	app.Run(os.Args)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 }
