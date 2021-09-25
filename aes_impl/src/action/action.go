@@ -18,10 +18,13 @@ func EncryptAction(ctx *cli.Context) (err error) {
 	keyfile := ctx.String("k")
 	vifile := ctx.String("v")
 	cipherfile := ctx.String("c")
+	authfile := ctx.String("a")
+	tagfile := ctx.String("tag")
 
 	plain := utils.ReadBytesHex(plainfile)
 	key := utils.ReadBytesHex(keyfile)
 	iv := utils.ReadBytesHex(vifile)
+	auth := utils.ReadBytesHex(authfile)
 
 	_aes, err := aes.NewAES(key)
 	if err != nil {
@@ -41,6 +44,10 @@ func EncryptAction(ctx *cli.Context) (err error) {
 		ciphertext = _aes.EncryptOFB(plain, iv[0:16])
 	case "CTR":
 		ciphertext = _aes.EncryptCTR(plain, iv[0:16])
+	case "GCM":
+		var tag []byte
+		ciphertext, tag = _aes.EncryptGCM(plain, iv, auth, 16)
+		utils.WriteBytesHex(tagfile, tag)
 	default:
 		log.Error("invalid mode")
 		return errors.New("invalid mode")
@@ -55,10 +62,15 @@ func DecryptAction(ctx *cli.Context) (err error) {
 	keyfile := ctx.String("k")
 	vifile := ctx.String("v")
 	cipherfile := ctx.String("c")
+	authfile := ctx.String("a")
+	tagfile := ctx.String("tag")
 
 	ciphertext := utils.ReadBytesHex(cipherfile)
 	key := utils.ReadBytesHex(keyfile)
 	iv := utils.ReadBytesHex(vifile)
+	auth := utils.ReadBytesHex(authfile)
+	tag := utils.ReadBytesHex(tagfile)
+
 	_aes, err := aes.NewAES(key)
 	if err != nil {
 		log.Error("%s", err)
@@ -77,6 +89,8 @@ func DecryptAction(ctx *cli.Context) (err error) {
 		plaintext = _aes.DecryptOFB(ciphertext, iv[0:16])
 	case "CTR":
 		plaintext = _aes.EncryptCTR(ciphertext, iv[0:16])
+	case "GCM":
+		plaintext = _aes.DecryptGCM(ciphertext, iv, auth, tag)
 	default:
 		log.Error("invalid mode")
 		return errors.New("invalid mode")

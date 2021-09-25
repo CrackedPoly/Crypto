@@ -21,7 +21,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "mode",
-						Usage:    "指定加密的操作模式，有ECB、CBC、CFB、OFB四种",
+						Usage:    "指定加密的操作模式，有ECB、CBC、CFB、OFB、CTR、GCM六种",
 						Aliases:  []string{"m"},
 						Required: true,
 					},
@@ -48,6 +48,18 @@ func main() {
 						Aliases:  []string{"c"},
 						Required: true,
 					},
+					&cli.StringFlag{
+						Name:     "authfile",
+						Usage:    "指定GCM模式中鉴别信息文件的位置和名称",
+						Aliases:  []string{"a"},
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:     "tagfile",
+						Usage:    "指定标志文件的位置和名称",
+						Aliases:  []string{"tag"},
+						Required: true,
+					},
 				},
 			},
 			{
@@ -57,7 +69,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "mode",
-						Usage:    "指定解密的操作模式，有ECB、CBC、CFB、OFB四种",
+						Usage:    "指定解密的操作模式，有ECB、CBC、CFB、OFB、CTR、GCM六种",
 						Aliases:  []string{"m"},
 						Required: true,
 					},
@@ -83,6 +95,18 @@ func main() {
 						Name:     "cipherfile",
 						Usage:    "指定密文文件的位置和名称",
 						Aliases:  []string{"c"},
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:     "authfile",
+						Usage:    "指定GCM模式中鉴别信息文件的位置和名称",
+						Aliases:  []string{"a"},
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:     "tagfile",
+						Usage:    "指定标志文件的位置和名称",
+						Aliases:  []string{"tag"},
 						Required: true,
 					},
 				},

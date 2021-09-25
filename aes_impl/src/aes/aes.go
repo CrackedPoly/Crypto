@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/UnknwoonUser/Crypto/utils"
+	"math"
 	"math/big"
+	"reflect"
 )
 
 var sbox = [256]byte{
@@ -52,11 +54,12 @@ var rcon = [10]uint32{
 }
 
 type AES struct {
-	nr  int    // number of rounds
-	nk  int    // number of words in the key
-	nb  int    // number of words in a block
-	len int    // length(bit) of block
-	key []byte // key
+	nr        int      // number of rounds
+	nk        int      // number of words in the key
+	nb        int      // number of words in a block
+	len       int      // length(byte) of block
+	key       []byte   // key
+	roundKeys []uint32 // round keys generated from key.
 }
 
 // NewAES returns a pointer of type AES and an error.
@@ -83,19 +86,21 @@ func NewAES(key []byte) (*AES, error) {
 	default:
 		return nil, errors.New("invalid key length")
 	}
-	return &AES{
+	aes := AES{
 		nr:  nr,
 		nk:  nk,
 		nb:  4,
 		len: 16,
 		key: key,
-	}, nil
+	}
+	aes.roundKeys = aes.keyExpansion()
+	return &aes, nil
 }
 
 // keyExpansion returns an uint32 slice presenting round keys
 // (4 uint32 for a key) in encryption. The number of round keys
 // is determined by the type of encryption. For example, 11 round
-// keys is in AES-128.
+// keys in AES-128.
 func (a *AES) keyExpansion() []uint32 {
 	var w []uint32
 	for i := 0; i < a.nk; i++ { // little-endian or big-endian matters.
@@ -105,7 +110,7 @@ func (a *AES) keyExpansion() []uint32 {
 		tempW := make([]byte, 4)
 		binary.BigEndian.PutUint32(tempW, w[i-1])
 		if i%a.nk == 0 {
-			RotWord(tempW)
+			rotWord(tempW)
 			a.subBytes(tempW)
 			tempRcon := make([]byte, 4)
 			binary.BigEndian.PutUint32(tempRcon, rcon[i/a.nk-1])
@@ -122,24 +127,21 @@ func (a *AES) keyExpansion() []uint32 {
 
 // EncryptECB returns the cipher of ECB-mode encryption.
 func (a *AES) EncryptECB(in []byte, pad utils.PaddingFunc) []byte {
-	roundKeys := a.keyExpansion()
 	in = pad(in, a.len)
 
 	for i := 0; i < len(in); i += a.len {
-		a.encryptBlock(in[i:i+a.len], roundKeys)
+		a.encryptBlock(in[i:i+a.len], a.roundKeys)
 	}
 
-	fmt.Printf("aes_impl-%d ECB encrypted cipher:\n", a.nk*32)
+	fmt.Printf("aes_impl-%d ECB encrypted cipher:", a.nk*32)
 	utils.DumpBytes("", in)
 	return in
 }
 
 // DecryptECB returns the plaintext of ECB-mode decryption.
 func (a *AES) DecryptECB(in []byte, unpad utils.UnpaddingFunc) []byte {
-	roundKeys := a.keyExpansion()
-
 	for i := 0; i < len(in); i += a.len {
-		a.decryptBlock(in[i:i+a.len], roundKeys)
+		a.decryptBlock(in[i:i+a.len], a.roundKeys)
 	}
 
 	in = unpad(in)
@@ -149,35 +151,33 @@ func (a *AES) DecryptECB(in []byte, unpad utils.UnpaddingFunc) []byte {
 }
 
 // EncryptCBC returns the cipher of CBC-mode encryption.
-// The iv must be the equal size of an AES block.
+// The iv must be 128bit.
 func (a *AES) EncryptCBC(in []byte, iv []byte, pad utils.PaddingFunc) []byte {
-	roundKeys := a.keyExpansion()
 	in = pad(in, a.len)
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 
 	for i := 0; i < len(in); i += a.len {
 		Xor(in[i:i+a.len], ivTmp)
-		a.encryptBlock(in[i:i+a.len], roundKeys)
+		a.encryptBlock(in[i:i+a.len], a.roundKeys)
 		copy(ivTmp, in[i:i+a.len])
 	}
 
-	fmt.Printf("aes_impl-%d CBC encrypted cipher:\n", a.nk*32)
+	fmt.Printf("aes_impl-%d CBC encrypted cipher:", a.nk*32)
 	utils.DumpBytes("", in)
 	return in
 }
 
 // DecryptCBC returns the plaintext of CBC-mode decryption.
-// The iv must be the equal size of an AES block.
+// The iv must be 128bit.
 func (a *AES) DecryptCBC(in []byte, iv []byte, unpad utils.UnpaddingFunc) []byte {
-	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 	reg := make([]byte, a.len)
 
 	for i := 0; i < len(in); i += a.len {
 		copy(reg, in[i:i+a.len])
-		a.decryptBlock(in[i:i+a.len], roundKeys)
+		a.decryptBlock(in[i:i+a.len], a.roundKeys)
 		Xor(in[i:i+a.len], ivTmp)
 		copy(ivTmp, reg)
 	}
@@ -189,32 +189,30 @@ func (a *AES) DecryptCBC(in []byte, iv []byte, unpad utils.UnpaddingFunc) []byte
 }
 
 // EncryptCFB encrypts every s bytes of plaintext, with
-// s at least 1 and no more than the size of an AES block.
-// The iv must be the equal size of an AES block.
+// s at least 1 and no more than 128.
+// The iv must be 128bit.
 func (a *AES) EncryptCFB(in []byte, iv []byte, s int) []byte {
-	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, a.len)
 	copy(ivTmp, iv)
 
 	i := 0
 	for ; i < len(in)-s; i += s {
-		a.encryptBlock(ivTmp, roundKeys)
+		a.encryptBlock(ivTmp, a.roundKeys)
 		Xor(in[i:i+s], ivTmp[0:s])
 		ivTmp = append(ivTmp[s:], in[i:i+s]...)
 	}
-	a.encryptBlock(ivTmp, roundKeys)
+	a.encryptBlock(ivTmp, a.roundKeys)
 	Xor(in[i:], ivTmp[0:s]) // process on the last bytes (less than s)
 
-	fmt.Printf("aes_impl-%d CFB with %d-bytes shift encrypted cipher:\n", a.nk*32, s)
+	fmt.Printf("aes_impl-%d CFB with %d-bytes shift encrypted cipher:", a.nk*32, s)
 	utils.DumpBytes("", in)
 	return in
 }
 
 // DecryptCFB decrypts every s bytes of ciphertext, with
-// s at least 1 and no more than the size of an AES block.
-// The iv must be the equal size of an AES block.
+// s at least 1 and no more than 128.
+// The iv must be 128bit.
 func (a *AES) DecryptCFB(in []byte, iv []byte, s int) []byte {
-	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 	cipherTmp := make([]byte, len(in))
@@ -222,51 +220,49 @@ func (a *AES) DecryptCFB(in []byte, iv []byte, s int) []byte {
 
 	i := 0
 	for ; i < len(in)-s; i += s {
-		a.encryptBlock(ivTmp, roundKeys)
+		a.encryptBlock(ivTmp, a.roundKeys)
 		Xor(in[i:i+s], ivTmp[0:s])
 		ivTmp = append(ivTmp[s:], cipherTmp[i:i+s]...)
 	}
-	a.encryptBlock(ivTmp, roundKeys)
+	a.encryptBlock(ivTmp, a.roundKeys)
 	Xor(in[i:], ivTmp[0:s])
 
-	fmt.Printf("aes_impl-%d CFB with %d-bytes shift decrypted plaintext:\n", a.nk*32, s)
+	fmt.Printf("aes_impl-%d CFB with %d-bytes shift decrypted plaintext:", a.nk*32, s)
 	utils.DumpBytes("", in)
 	return in
 }
 
 // EncryptOFB returns the cipher of OFB-mode encryption.
-// The iv must be the equal size of an AES block.
+// The iv must be 128bit.
 func (a *AES) EncryptOFB(in []byte, iv []byte) []byte {
-	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 
 	i := 0
 	for ; i < len(in)-a.len; i += a.len {
-		a.encryptBlock(ivTmp, roundKeys)
+		a.encryptBlock(ivTmp, a.roundKeys)
 		Xor(in[i:i+a.len], ivTmp)
 	}
-	a.encryptBlock(ivTmp, roundKeys)
+	a.encryptBlock(ivTmp, a.roundKeys)
 	Xor(in[i:], ivTmp)
 
-	fmt.Printf("aes_impl-%d OFB encrypted cipher:\n", a.nk*32)
+	fmt.Printf("aes_impl-%d OFB encrypted cipher:", a.nk*32)
 	utils.DumpBytes("", in)
 	return in
 }
 
 // DecryptOFB returns the plaintext of OFB-mode decryption.
-// The iv must be the equal size of an AES block.
+// The iv must be 128bit.
 func (a *AES) DecryptOFB(in []byte, iv []byte) []byte {
-	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 
 	i := 0
 	for ; i < len(in)-a.len; i += a.len {
-		a.encryptBlock(ivTmp, roundKeys)
+		a.encryptBlock(ivTmp, a.roundKeys)
 		Xor(in[i:i+a.len], ivTmp)
 	}
-	a.encryptBlock(ivTmp, roundKeys)
+	a.encryptBlock(ivTmp, a.roundKeys)
 	Xor(in[i:], ivTmp)
 
 	fmt.Printf("aes_impl-%d OFB decrypted plaintext:", a.nk*32)
@@ -275,9 +271,8 @@ func (a *AES) DecryptOFB(in []byte, iv []byte) []byte {
 }
 
 // EncryptCTR returns the ciphertext of CTR-mode encryption.
-// The iv must be the equal size of an AES block.
+// The iv must be 128bit.
 func (a *AES) EncryptCTR(in []byte, iv []byte) []byte {
-	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 	ivNumber := big.NewInt(0).SetBytes(iv)
@@ -285,11 +280,11 @@ func (a *AES) EncryptCTR(in []byte, iv []byte) []byte {
 
 	i := 0
 	for ; i < len(in)-a.len; i += a.len {
-		a.encryptBlock(ivTmp, roundKeys)
+		a.encryptBlock(ivTmp, a.roundKeys)
 		Xor(in[i:i+a.len], ivTmp)
 		ivNumber.Add(ivNumber, one).FillBytes(ivTmp)
 	}
-	a.encryptBlock(ivTmp, roundKeys)
+	a.encryptBlock(ivTmp, a.roundKeys)
 	Xor(in[i:], ivTmp)
 
 	fmt.Printf("aes_impl-%d CTR encrypted ciphertext:", a.nk*32)
@@ -298,10 +293,9 @@ func (a *AES) EncryptCTR(in []byte, iv []byte) []byte {
 }
 
 // DecryptCTR returns the plaintext of CTR-mode decryption.
-// The iv must be the equal size of an AES block.
+// The iv must be 128bit.
 // It is exactly the same with EncryptCTR.
 func (a *AES) DecryptCTR(in []byte, iv []byte) []byte {
-	roundKeys := a.keyExpansion()
 	ivTmp := make([]byte, len(iv))
 	copy(ivTmp, iv)
 	ivNumber := big.NewInt(0).SetBytes(iv)
@@ -309,16 +303,86 @@ func (a *AES) DecryptCTR(in []byte, iv []byte) []byte {
 
 	i := 0
 	for ; i < len(in)-a.len; i += a.len {
-		a.encryptBlock(ivTmp, roundKeys)
+		a.encryptBlock(ivTmp, a.roundKeys)
 		Xor(in[i:i+a.len], ivTmp)
 		ivNumber.Add(ivNumber, one).FillBytes(ivTmp)
 	}
-	a.encryptBlock(ivTmp, roundKeys)
+	a.encryptBlock(ivTmp, a.roundKeys)
 	Xor(in[i:], ivTmp)
 
 	fmt.Printf("aes_impl-%d CTR decrypted ciphertext:", a.nk*32)
 	utils.DumpBytes("", in)
 	return in
+}
+
+// EncryptGCM returns the ciphertext of GCM-mode encryption and the tag.
+func (a *AES) EncryptGCM(in []byte, iv []byte, auth []byte, tagLen int) ([]byte, []byte) {
+	H := make([]byte, 16)
+	a.encryptBlock(H, a.roundKeys)
+	var J0 []byte
+
+	if len(iv) == 12 {
+		J0 = append(iv, []byte{0x00, 0x00, 0x00, 0x01}...)
+	} else {
+		sPlus64Zeros := make([]byte, 16*int(math.Ceil(float64(8*len(iv))/128.0))-len(iv)+8)
+		lenIV := make([]byte, 8)
+		big.NewInt(int64(8 * len(iv))).FillBytes(lenIV)
+		J0 = gHash(append(append(iv, sPlus64Zeros...), lenIV...), H)
+	}
+	J0Tmp := make([]byte, len(J0))
+	copy(J0Tmp, J0)
+
+	in = a.EncryptGCTR(in, inc32(J0))
+	vZeros := make([]byte, 16*int(math.Ceil(float64(8*len(auth))/128.0))-len(auth))
+	uZeros := make([]byte, 16*int(math.Ceil(float64(8*len(in))/128.0))-len(in))
+	lenA := make([]byte, 8)
+	lenC := make([]byte, 8)
+	big.NewInt(int64(8 * len(auth))).FillBytes(lenA)
+	big.NewInt(int64(8 * len(in))).FillBytes(lenC)
+	S := gHash(append(append(append(append(append(auth, vZeros...), in...), uZeros...), lenA...), lenC...), H)
+	T := a.EncryptGCTR(S, J0Tmp)
+	fmt.Printf("aes_impl-%d GCM encrypted ciphertext:", a.nk*32)
+	utils.DumpBytes("", in)
+	utils.DumpBytes("tag:", T[:tagLen])
+	return in, T[:tagLen]
+}
+
+// DecryptGCM returns the plaintext of GCM-mode decryption or
+// a nil if authentication failed.
+func (a *AES) DecryptGCM(in []byte, iv []byte, auth []byte, tag []byte) []byte {
+	H := make([]byte, 16)
+	a.encryptBlock(H, a.roundKeys)
+	var J0 []byte
+
+	if len(iv) == 12 {
+		J0 = append(iv, []byte{0x00, 0x00, 0x00, 0x01}...)
+	} else {
+		sPlus64Zeros := make([]byte, 16*int(math.Ceil(float64(8*len(iv))/128.0))-len(iv)+8)
+		lenIV := make([]byte, 8)
+		big.NewInt(int64(8 * len(iv))).FillBytes(lenIV)
+		J0 = gHash(append(append(iv, sPlus64Zeros...), lenIV...), H)
+	}
+	J0Tmp := make([]byte, len(J0))
+	copy(J0Tmp, J0)
+
+	ciphertext := make([]byte, len(in))
+	copy(ciphertext, in)
+	in = a.EncryptGCTR(in, inc32(J0))
+	vZeros := make([]byte, 16*int(math.Ceil(float64(8*len(auth))/128.0))-len(auth))
+	uZeros := make([]byte, 16*int(math.Ceil(float64(8*len(in))/128.0))-len(in))
+	lenA := make([]byte, 8)
+	lenC := make([]byte, 8)
+	big.NewInt(int64(8 * len(auth))).FillBytes(lenA)
+	big.NewInt(int64(8 * len(in))).FillBytes(lenC)
+	S := gHash(append(append(append(append(append(auth, vZeros...), ciphertext...), uZeros...), lenA...), lenC...), H)
+	T := a.EncryptGCTR(S, J0Tmp)
+	fmt.Printf("aes_impl-%d GCM decrypted plaintext:", a.nk*32)
+	if reflect.DeepEqual(T[:len(tag)], tag) {
+		utils.DumpBytes("", in)
+		return in
+	}
+	utils.DumpBytes("\nFailed", nil)
+	return nil
 }
 
 // subBytes operation in AES encryption.
@@ -339,7 +403,8 @@ func (a *AES) shiftRow(in []byte, i int, n int) {
 	in[i], in[i+4*1], in[i+4*2], in[i+4*3] = in[i+4*(n%4)], in[i+4*((n+1)%4)], in[i+4*((n+2)%4)], in[i+4*((n+3)%4)]
 }
 
-func RotWord(in []byte) {
+// rotWord rotates a 4-byte slice leftward. That is in << 8.
+func rotWord(in []byte) {
 	in[0], in[1], in[2], in[3] = in[1], in[2], in[3], in[0]
 }
 
@@ -357,10 +422,12 @@ func (a *AES) invShiftRows(state []byte) {
 	a.shiftRow(state, 3, 1)
 }
 
+// xtime returns the result of multiplication by x in GF(2^8).
 func xtime(in byte) byte {
 	return (in << 1) ^ (((in >> 7) & 1) * 0x1b)
 }
 
+// xtimes returns the result of multiplication by x^ts in GF(2^8).
 func xtimes(in byte, ts int) byte {
 	for ts > 0 {
 		in = xtime(in)
@@ -369,7 +436,8 @@ func xtimes(in byte, ts int) byte {
 	return in
 }
 
-func mulBytes(x byte, y byte) byte {
+// mulByte returns byte x multiplied by byte y in GF(2^8).
+func mulByte(x byte, y byte) byte {
 	return (((y >> 0) & 0x01) * xtimes(x, 0)) ^
 		(((y >> 1) & 0x01) * xtimes(x, 1)) ^
 		(((y >> 2) & 0x01) * xtimes(x, 2)) ^
@@ -380,21 +448,24 @@ func mulBytes(x byte, y byte) byte {
 		(((y >> 7) & 0x01) * xtimes(x, 7))
 }
 
-func mulWords(x []byte, y []byte) {
+// mulWord provides the one-column mix for the function
+// mixColumns and invMixColumns. In fact, it's a matrix
+// multiplication.
+func mulWord(x []byte, y []byte) {
 	tmp := make([]byte, 4)
 	copy(tmp, x)
 
-	x[0] = mulBytes(tmp[0], y[3]) ^ mulBytes(tmp[1], y[0]) ^ mulBytes(tmp[2], y[1]) ^ mulBytes(tmp[3], y[2])
-	x[1] = mulBytes(tmp[0], y[2]) ^ mulBytes(tmp[1], y[3]) ^ mulBytes(tmp[2], y[0]) ^ mulBytes(tmp[3], y[1])
-	x[2] = mulBytes(tmp[0], y[1]) ^ mulBytes(tmp[1], y[2]) ^ mulBytes(tmp[2], y[3]) ^ mulBytes(tmp[3], y[0])
-	x[3] = mulBytes(tmp[0], y[0]) ^ mulBytes(tmp[1], y[1]) ^ mulBytes(tmp[2], y[2]) ^ mulBytes(tmp[3], y[3])
+	x[0] = mulByte(tmp[0], y[3]) ^ mulByte(tmp[1], y[0]) ^ mulByte(tmp[2], y[1]) ^ mulByte(tmp[3], y[2])
+	x[1] = mulByte(tmp[0], y[2]) ^ mulByte(tmp[1], y[3]) ^ mulByte(tmp[2], y[0]) ^ mulByte(tmp[3], y[1])
+	x[2] = mulByte(tmp[0], y[1]) ^ mulByte(tmp[1], y[2]) ^ mulByte(tmp[2], y[3]) ^ mulByte(tmp[3], y[0])
+	x[3] = mulByte(tmp[0], y[0]) ^ mulByte(tmp[1], y[1]) ^ mulByte(tmp[2], y[2]) ^ mulByte(tmp[3], y[3])
 }
 
 // mixColumns operation in AES encryption.
 func (a *AES) mixColumns(state []byte) {
 	s := []byte{0x03, 0x01, 0x01, 0x02}
 	for i := 0; i < len(state); i += 4 {
-		mulWords(state[i:i+4], s)
+		mulWord(state[i:i+4], s)
 	}
 }
 
@@ -402,11 +473,11 @@ func (a *AES) mixColumns(state []byte) {
 func (a *AES) invMixColumns(state []byte) {
 	s := []byte{0x0b, 0x0d, 0x09, 0x0e}
 	for i := 0; i < len(state); i += 4 {
-		mulWords(state[i:i+4], s)
+		mulWord(state[i:i+4], s)
 	}
 }
 
-// Xor exposes xor to x.
+// Xor applies y xor to x. Please make sure that len(y) >= len(x).
 func Xor(x []byte, y []byte) {
 	if len(x) <= len(y) {
 		for i := 0; i < len(x); i++ {
@@ -450,4 +521,67 @@ func (a *AES) decryptBlock(state []byte, roundKeys []uint32) {
 	a.invShiftRows(state)
 	a.invSubBytes(state)
 	a.addRoundKey(state, roundKeys[0:4])
+}
+
+// inc increments the right-most 32 bits of the bit string X,
+// and it returns X.
+func inc32(X []byte) []byte {
+	lsb32 := binary.BigEndian.Uint32(X[len(X)-4:]) + 1
+	binary.BigEndian.PutUint32(X[len(X)-4:], lsb32)
+	return X
+}
+
+// mulBlock impose a multiplication operation to x in GCM mode.
+func mulBlock(x []byte, y []byte) {
+	tmp := big.NewInt(0).SetBytes([]byte{0xe1})
+
+	R := tmp.Lsh(tmp, 120)
+	X := big.NewInt(0).SetBytes(x)
+	Z := big.NewInt(0)
+	V := big.NewInt(0).SetBytes(y)
+	for i := 0; i < 128; i++ {
+		if X.Bit(127-i) == 1 {
+			Z.Xor(Z, V)
+		}
+		if V.Bit(0) == 0 {
+			V.Rsh(V, 1)
+		} else {
+			V.Xor(V.Rsh(V, 1), R)
+		}
+	}
+	Z.FillBytes(x)
+}
+
+// gHash hashes X with the sub key H, and it returns a new slice.
+func gHash(X []byte, H []byte) []byte {
+	y := make([]byte, 16)
+
+	for i := 0; i < len(X); i += 16 {
+		Xor(y, X[i:i+16])
+		mulBlock(y, H)
+	}
+	return y
+}
+
+// EncryptGCTR encrypts plaintext in with initial counter block ICB.
+func (a *AES) EncryptGCTR(in []byte, ICB []byte) []byte {
+	if in == nil {
+		return in
+	}
+
+	xorBlock := make([]byte, 16*int(math.Ceil(float64(len(in))/16.0)))
+	// The variable cbi(i 'th counter block) is used to preserve the state.
+	cbi := make([]byte, 16)
+	cbi1 := make([]byte, 16)
+	copy(cbi, ICB)
+	copy(cbi1, ICB)
+	for i := 0; i < len(in); i += a.len {
+		a.encryptBlock(cbi1, a.roundKeys)
+		copy(xorBlock[i:i+a.len], cbi1)
+		cbi = inc32(cbi)
+		copy(cbi1, cbi)
+	}
+
+	Xor(in, xorBlock)
+	return in
 }
