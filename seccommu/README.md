@@ -1,1 +1,1 @@
-![secure communication](https://raw.githubusercontent.com/CrackedPoly/crackedpoly.github.io/images/img/2021/09/25/d4cea92cdf14dfe8cfb0441cf9b1a50e-secure_communication-e24d87.png)
+![secure communication](https://raw.githubusercontent.com/CrackedPoly/crackedpoly.github.io/images/img/2021/09/25/e5bee8a828196e2a4b481ff326f3bab8-secure_communication-678a2e.png)
