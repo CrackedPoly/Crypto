@@ -12,4 +12,4 @@ Encryption and decryption.
 
 Signature and verification.
 
-## Lab3: A not yet secure communication plan
+## Lab3: A secure communication plan
