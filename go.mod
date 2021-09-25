@@ -1,4 +1,4 @@
-module github.com/UnknwoonUser/Crypto
+module github.com/CrackedPoly/Crypto
 
 go 1.15
 

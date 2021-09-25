@@ -1,10 +1,10 @@
-package main
+package action
 
 import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/UnknwoonUser/Crypto/seccommu"
+	"github.com/CrackedPoly/Crypto/seccommu/src/seccommu"
 	"github.com/otokaze/go-kit/log"
 	"github.com/peterh/liner"
 	"github.com/urfave/cli/v2"
@@ -13,14 +13,27 @@ import (
 	"strings"
 )
 
-func newcerAction(ctx *cli.Context) error {
+func NewcerAction(ctx *cli.Context) error {
+	childcer := ctx.String("childcer")
+	childpvk := ctx.String("childpvk")
+	rootcer := ctx.String("rootcer")
+	rootpvk := ctx.String("rootpvk")
+	cn := ctx.String("cn")
+
 	err := seccommu.NewCer(childcer, childpvk, rootcer, rootpvk, cn)
 
 	fmt.Printf("Generate \"%s\", \"%s\" successfully.\n", childpvk, childcer)
 	return err
 }
 
-func sendAction(ctx *cli.Context) error {
+func SendAction(ctx *cli.Context) error {
+	cer := ctx.String("cer")
+	keyout := ctx.String("keyout")
+	msg := ctx.String("msg")
+	msgout := ctx.String("msgout")
+	pvk := ctx.String("pvk")
+	signedout := ctx.String("signedout")
+
 	key := seccommu.Rand16()
 	pubKey := seccommu.ParsePubKey(cer)
 	seccommu.EncryptRSA(pubKey, key, keyout)
@@ -44,7 +57,11 @@ func sendAction(ctx *cli.Context) error {
 	return nil
 }
 
-func getkeyAction(ctx *cli.Context) error {
+func GetKeyAction(ctx *cli.Context) error {
+	keyout := ctx.String("keyout")
+	pvk := ctx.String("pvk")
+	keyrec := ctx.String("keyrec")
+
 	priKey := seccommu.ParsePriKey(pvk)
 	cipher, err := ioutil.ReadFile(keyout)
 	if err != nil {
@@ -61,7 +78,11 @@ func getkeyAction(ctx *cli.Context) error {
 	return nil
 }
 
-func getMessageAction(ctx *cli.Context) error {
+func GetMessageAction(ctx *cli.Context) error {
+	keyrec := ctx.String("keyrec")
+	msgout := ctx.String("msgout")
+	msgrec := ctx.String("msgrec")
+
 	key, err := ioutil.ReadFile(keyrec)
 	if err != nil {
 		return err
@@ -81,7 +102,11 @@ func getMessageAction(ctx *cli.Context) error {
 	return nil
 }
 
-func verifyAction(ctx *cli.Context) error {
+func VerifyAction(ctx *cli.Context) error {
+	signedout := ctx.String("signedout")
+	cer := ctx.String("cer")
+	msgrec := ctx.String("msgrec")
+
 	sig, err := ioutil.ReadFile(signedout)
 	if err != nil {
 		return err
@@ -103,7 +128,10 @@ func verifyAction(ctx *cli.Context) error {
 	return nil
 }
 
-func diffAction(ctx *cli.Context) error {
+func DiffAction(ctx *cli.Context) error {
+	msg := ctx.String("msg")
+	msgrec := ctx.String("msgrec")
+
 	equal, err := seccommu.Equal(msg, msgrec)
 	if err != nil {
 		return err
@@ -116,7 +144,7 @@ func diffAction(ctx *cli.Context) error {
 	return nil
 }
 
-func afterAction(ctx *cli.Context) (err error) {
+func AfterAction(ctx *cli.Context) (err error) {
 	line := liner.NewLiner()
 	line.SetCtrlCAborts(true)
 	defer line.Close()

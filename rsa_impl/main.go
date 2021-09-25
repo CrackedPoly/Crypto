@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/UnknwoonUser/Crypto/rsa_impl/src/action"
+	"github.com/CrackedPoly/Crypto/rsa_impl/src/action"
 	"github.com/urfave/cli/v2"
 	"log"
 	"os"
